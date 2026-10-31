@@ -1,0 +1,17 @@
+# Build output and Visual Studio files
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
+
+# Access databases and spreadsheets hold school data; keep them out of the repository
+*.accdb
+*.laccdb
+*.mdb
+*.ldb
+*.xlsx
+*.xls
+Salaries/
+AccountingDB/

@@ -1,0 +1,4 @@
+﻿SELECT DISTINCTROW Accounts.AccountName AS Expr1, Accounts.AccountID AS Expr2, [Debit]-[Credit] AS Runbal, Transaction.TransactionID AS Expr3, Transaction.Trans_Head AS Expr4, Transaction.TransactionDescription AS Expr5, Transaction.Credit AS Expr6, Transaction.Debit AS Expr7, Transaction.Balance AS Expr8, Transaction.OK AS Expr9, Transaction.DW AS Expr10, Transaction.TransactionDate AS Expr11, [VoucherTypecode] & "-" & [VoucherNo] AS VNo, AccountTypes.AccountType AS Expr12
+FROM VoucherType, AccountTypes, Trans_head, Accounts, [Transaction]
+WHERE (((Accounts.AccountName) Like ("*Bank*") Or (Accounts.AccountName) Like ("*Cash*")) And ((Transaction.TransactionDate)>=forms![Report Date Range]![Beginning Trans Date] And (Transaction.TransactionDate)<=Forms![Report Date Range]![Ending Trans Date]));
+

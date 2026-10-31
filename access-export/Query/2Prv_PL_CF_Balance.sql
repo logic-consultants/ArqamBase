@@ -1,0 +1,3 @@
+﻿SELECT DISTINCTROW Sum(Balance) AS PL
+FROM 2Prv_PL_CF;
+

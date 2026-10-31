@@ -1,0 +1,461 @@
+Option Compare Database
+Option Explicit
+Public Function SendWhatsAppMessage(ClientPhone As String, Message As String) As String
+Dim URL As String
+Dim RequestBody As String
+Dim Http As Object
+
+' The idInstance and apiTokenInstance values are available in your account, double brackets must be removed
+'URL = "https://7105.api.greenapi.com/waInstance7105318171/sendMessage/fee0596ecbb44900b98d38ba277c085fb5d9c34157b1400c85"
+URL = "https://7105.api.greenapi.com/waInstance7105626737/sendMessage/07aa426ea1b44aa594ade77720e3872dc9b09865ea4643828f"
+
+
+' chatId is the number to send the message to (@c.us for private chats, @g.us for group chats)
+RequestBody = "{" & _
+"""chatId"":""" & ClientPhone & "@c.us""," & _
+"""message"":""" & Message & """}"
+
+Debug.Print RequestBody
+Set Http = CreateObject("MSXML2.XMLHTTP")
+
+With Http
+    .Open "POST", URL, False
+    .SetRequestHeader "Content-Type", "application/json"
+    .Send RequestBody
+End With
+SendWhatsAppMessage = Http.ResponseText
+Debug.Print SendWhatsAppMessage
+Set Http = Nothing
+
+End Function
+
+'============================================WAAPI===========================================================
+'WA API function: Cancelled following due to unavailability of the API and some other issues;
+'Public Function SendWhatsAppMessage(ClientPhone As String, Message As String) As String
+'Dim http As Object
+'    Dim url As String
+'    Dim jsonBody As String
+'    Dim token As String
+'
+'    ' Define URL and token
+'    url = "https://waapi.app/api/v1/instances/60829/client/action/send-message"
+'    token = "TnqTSwZiLpQ0FzVQTVE1xzYFUkc52l8dhzqadx7z6d6f5105"
+'
+'    ' Create the JSON body
+'    jsonBody = _
+'        "{" & _
+'        """chatId"": """ & ClientPhone & "@c.us""," & _
+'        """message"": """ & Message & """," & _
+'        """mentions"": [""" & ClientPhone & "@c.us""]" & _
+'        "}"
+'Debug.Print jsonBody
+'    ' Create the HTTP request
+'    Set http = CreateObject("MSXML2.XMLHTTP")
+'    http.Open "POST", url, False
+'    http.setRequestHeader "Accept", "application/json"
+'    http.setRequestHeader "Authorization", "Bearer " & token
+'    http.setRequestHeader "Content-Type", "application/json"
+'
+'    ' Send the request
+'    http.Send jsonBody
+'
+'    ' Show the response
+'    SendWhatsAppMessage = http.responseText
+'    Debug.Print SendWhatsAppMessage '"Response: " & http.responsetext
+'End Function
+'============================================WAAPI===========================================================
+
+
+Public Function SendGroupMessage()
+    Dim Http As Object
+    Dim URL As String
+    Dim jsonBody As String
+    Dim token As String
+
+    ' Set the API URL and Bearer token
+    URL = "https://waapi.app/api/v1/instances/60829/client/action/send-message"
+    token = "TnqTSwZiLpQ0FzVQTVE1xzYFUkc52l8dhzqadx7z6d6f5105"
+
+    ' Compose the JSON request body
+    jsonBody = _
+        "{" & _
+        """chatId"": ""923076691327-1583235551@g.us""," & _
+        """message"": ""Group Message Test from API""," & _
+        """mentions"": [""923206647377@c.us""]" & _
+        "}"
+
+    ' Create the HTTP request
+    Set Http = CreateObject("MSXML2.XMLHTTP")
+    Http.Open "POST", URL, False
+    Http.SetRequestHeader "Accept", "application/json"
+    Http.SetRequestHeader "Authorization", "Bearer " & token
+    Http.SetRequestHeader "Content-Type", "application/json"
+
+    ' Send the request with JSON data
+    Http.Send jsonBody
+
+    ' Display the response
+    MsgBox "Response: " & Http.ResponseText
+End Function
+
+
+Function ExtractStatus(inputStr As String) As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim statusText As String
+
+    ' Find the start of "status":" (we want the value right after this)
+    startPos = InStr(inputStr, """idMessage"":""")
+    
+    If startPos > 0 Then
+        ' Move to the actual value of status (after the colon and first quote)
+        startPos = startPos + Len("""idMessage"":""")
+        
+        ' Find the position of the next quote after the status value
+        endPos = InStr(startPos, inputStr, """")
+        
+        ' Extract the value between
+        statusText = Mid(inputStr, startPos, endPos - startPos)
+    Else
+        statusText = "Not found"
+    End If
+
+    ExtractStatus = statusText
+End Function
+
+
+Public Function SaveWAMessage(CC As Integer, Phone As String, MessageText As String, SentOn As Date, SentBy As String, _
+                        Status As String) As String
+' crate a log of message sent to Whats app
+    
+    On Error GoTo ErrHandler
+
+    Dim db As DAO.Database
+    Dim RS As DAO.Recordset
+
+    ' Set current database
+    Set db = CurrentDb
+
+    ' Open recordset to WAMessages table
+    Set RS = db.OpenRecordset("WAMessages", dbOpenDynaset, dbSeeChanges)
+
+    ' Add new record
+    RS.AddNew
+    RS!FK_CC = CC
+    RS!Phone = Phone
+    RS!Message = MessageText
+    RS!SentOn = SentOn
+    RS!SendBy = SentBy
+    RS!Status = Status
+    RS.Update
+
+    SaveWAMessage = "Message saved successfully."
+
+    ' Clean up
+    RS.Close
+    Set RS = Nothing
+    Set db = Nothing
+    Exit Function
+
+ErrHandler:
+    SaveWAMessage = "Error: " & Err.Description
+    Debug.Print SaveWAMessage
+    
+End Function
+
+
+Public Function RandomWaitSeconds() As Integer
+    Randomize
+    RandomWaitSeconds = Int((30 - 5 + 1) * Rnd + 5)
+End Function
+
+
+
+Public Sub WaitRandomTime()
+    Dim waitSeconds As Integer
+    Dim endTime As Date
+
+    waitSeconds = RandomWaitSeconds()
+    endTime = DateAdd("s", waitSeconds, Now)
+
+    Do While Now < endTime
+        DoEvents
+    Loop
+End Sub
+
+
+Public Function SendFileByUpload( _
+    ByVal PhoneNumber As String, _
+    ByVal FilePath As String, _
+    Optional ByVal Caption As String = "Fee Challan" _
+) As Boolean
+
+    Const ID_INSTANCE As String = "7105626737"
+    Const API_TOKEN As String = "07aa426ea1b44aa594ade77720e3872dc9b09865ea4643828f"
+
+  '  On Error GoTo ErrHandler
+
+    Dim URL As String
+    Dim Boundary As String
+    Dim FileName As String
+    Dim ChatId As String
+
+    'Validate phone number
+    PhoneNumber = Trim(PhoneNumber)
+
+    If PhoneNumber = "" Then
+        MsgBox "Phone number is required.", vbExclamation
+        Exit Function
+    End If
+
+    'Remove common characters from phone number
+    PhoneNumber = Replace(PhoneNumber, "+", "")
+    PhoneNumber = Replace(PhoneNumber, " ", "")
+    PhoneNumber = Replace(PhoneNumber, "-", "")
+    PhoneNumber = Replace(PhoneNumber, "(", "")
+    PhoneNumber = Replace(PhoneNumber, ")", "")
+
+    'Validate file path
+    If Trim(FilePath) = "" Then
+        MsgBox "File path is required.", vbExclamation
+        Exit Function
+    End If
+
+    If Dir(FilePath) = "" Then
+        MsgBox "The selected file does not exist:" & vbCrLf & _
+               FilePath, vbExclamation
+        Exit Function
+    End If
+
+    'Get filename from full path
+    FileName = Mid(FilePath, InStrRev(FilePath, "\") + 1)
+
+    ChatId = PhoneNumber & "@c.us"
+
+    URL = "https://7105.media.greenapi.com/waInstance" & _
+          ID_INSTANCE & "/sendFileByUpload/" & API_TOKEN
+
+    Boundary = "---------------------------" & _
+               Format(Now, "yyyymmddhhnnss")
+
+    'Read the file
+    Dim FileStream As Object
+    Dim FileBytes() As Byte
+
+    Set FileStream = CreateObject("ADODB.Stream")
+
+    With FileStream
+        .Type = 1
+        .Open
+        .LoadFromFile FilePath
+        FileBytes = .Read
+        .Close
+    End With
+
+    Set FileStream = Nothing
+
+    'Create multipart request body
+    Dim Body As Object
+    Set Body = CreateObject("ADODB.Stream")
+
+    Body.Type = 1
+    Body.Open
+
+    WriteText Body, "--" & Boundary & vbCrLf
+    WriteText Body, _
+        "Content-Disposition: form-data; name=""chatId""" & _
+        vbCrLf & vbCrLf
+
+    WriteText Body, ChatId & vbCrLf
+
+    WriteText Body, "--" & Boundary & vbCrLf
+    WriteText Body, _
+        "Content-Disposition: form-data; name=""caption""" & _
+        vbCrLf & vbCrLf
+
+    WriteText Body, Caption & vbCrLf
+
+    WriteText Body, "--" & Boundary & vbCrLf
+    WriteText Body, _
+        "Content-Disposition: form-data; name=""fileName""" & _
+        vbCrLf & vbCrLf
+
+    WriteText Body, FileName & vbCrLf
+
+    WriteText Body, "--" & Boundary & vbCrLf
+    WriteText Body, _
+        "Content-Disposition: form-data; name=""file""; filename=""" & _
+        FileName & """" & vbCrLf
+
+    WriteText Body, _
+        "Content-Type: application/octet-stream" & _
+        vbCrLf & vbCrLf
+
+    Body.Write FileBytes
+
+    WriteText Body, vbCrLf & "--" & Boundary & "--" & vbCrLf
+
+    Body.Position = 0
+
+    'Send request
+    Dim Http As Object
+    Set Http = CreateObject("MSXML2.XMLHTTP.6.0")
+
+    Http.Open "POST", URL, False
+
+    Http.SetRequestHeader _
+        "Content-Type", _
+        "multipart/form-data; boundary=" & Boundary
+
+    Http.Send Body.Read
+   ' Debug.Print Http.Response
+
+    If Http.Status >= 200 And Http.Status < 300 Then
+        SendFileByUpload = True
+
+        MsgBox "File sent successfully." & vbCrLf & vbCrLf & _
+               Http.ResponseText, _
+               vbInformation
+    Else
+        SendFileByUpload = False
+
+        MsgBox "The file could not be sent." & vbCrLf & _
+               "HTTP Status: " & Http.Status & vbCrLf & vbCrLf & _
+               Http.ResponseText, _
+               vbExclamation
+               Debug.Print Http.ResponseText
+    End If
+
+Cleanup:
+    On Error Resume Next
+
+    If Not Body Is Nothing Then
+        Body.Close
+    End If
+
+    Set Body = Nothing
+    Set Http = Nothing
+    Set FileStream = Nothing
+
+    Exit Function
+
+ErrHandler:
+    SendFileByUpload = False
+
+    MsgBox "Error " & Err.Number & vbCrLf & _
+           Err.Description, _
+           vbCritical, _
+           "SendFileByUpload"
+
+    Resume Cleanup
+
+End Function
+
+
+Private Sub WriteText(ByVal stm As Object, ByVal txt As String)
+
+    Dim TextStream As Object
+    Dim TextBytes() As Byte
+
+    Set TextStream = CreateObject("ADODB.Stream")
+
+    With TextStream
+        .Type = 2
+        .Charset = "utf-8"
+        .Open
+        .WriteText txt
+
+        'Convert text stream to binary
+        .Position = 0
+        .Type = 1
+
+        'Skip the three-byte UTF-8 BOM
+        If .Size >= 3 Then
+            .Position = 3
+        End If
+
+        TextBytes = .Read
+        .Close
+    End With
+
+    stm.Write TextBytes
+
+    Set TextStream = Nothing
+
+End Sub
+
+        
+
+Public Function ExportFeeChallanToPDF( _
+    ByVal StudentID As Long, _
+    ByVal ReportName As String _
+) As String
+
+    On Error GoTo ErrHandler
+
+    Dim DesktopPath As String
+    Dim TempFolder As String
+    Dim PDFPath As String
+    Dim FileName As String
+    Dim WhereCondition As String
+    Dim WshShell As Object
+
+    'Get the actual Desktop path
+    Set WshShell = CreateObject("WScript.Shell")
+    DesktopPath = WshShell.SpecialFolders("Desktop")
+
+    'Create Temp folder path
+    TempFolder = DesktopPath & "\Temp"
+
+    'Create Temp folder if it does not exist
+    If Dir(TempFolder, vbDirectory) = "" Then
+        MkDir TempFolder
+    End If
+
+    'Create PDF filename
+    FileName = "FeeChallan_" & StudentID & "_" & _
+               Format(Now, "yyyymmdd_hhnnss") & ".pdf"
+
+    PDFPath = TempFolder & "\" & FileName
+
+    'Change StudentID to the actual field name in your report
+    WhereCondition = "[CC] = " & StudentID
+
+    'Open report hidden and filtered for the selected student
+    DoCmd.OpenReport _
+        ReportName:=ReportName, _
+        View:=acViewPreview, _
+        WindowMode:=acHidden, _
+        WhereCondition:=WhereCondition
+
+    'Export report to PDF
+    DoCmd.OutputTo _
+        ObjectType:=acOutputReport, _
+        ObjectName:=ReportName, _
+        OutputFormat:=acFormatPDF, _
+        OutputFile:=PDFPath, _
+        AutoStart:=False
+
+    'Close report
+    DoCmd.Close acReport, ReportName, acSaveNo
+
+    ExportFeeChallanToPDF = PDFPath
+
+Cleanup:
+    Set WshShell = Nothing
+    Exit Function
+
+ErrHandler:
+    On Error Resume Next
+
+    DoCmd.Close acReport, ReportName, acSaveNo
+
+    MsgBox "Error " & Err.Number & vbCrLf & _
+           Err.Description, _
+           vbCritical, _
+           "Export Fee Challan"
+
+    ExportFeeChallanToPDF = ""
+    Resume Cleanup
+
+End Function

@@ -1,0 +1,5 @@
+﻿SELECT Family.FormID, Students.[DS#], Students.CC, Students.Name, Family.FatherName, Students.AdmissionDate, Family.Caste, [TuitionFee]+[ExamsFee]+[MiscFee]+[LabFee]+[ParkingFee]+[Other] AS Total, Family.[NIC#], Family.FathersEdu, Family.Profession, Family.CurrentAdress, Family.PermanentAddress, Family.Mcell, Family.PhHome, Family.PhOffice, Family.Mobile, Classes.DeptNo, FeeDefinitation.TuitionFee, FeeDefinitation.ExamsFee, FeeDefinitation.MiscFee, FeeDefinitation.LabFee, FeeDefinitation.ParkingFee, FeeDefinitation.Other, FeeDefinitation.AdmissionFee, Students.AdmissionClass, Students.CurrentClass, Students.CurrentSection, Students.Status, Students.Remarks, Students.BirthDate, Students.SLDate, "92" & Right([Mobile],10) AS cellno, Students.sex, Classes.ClassNam, Departments.DepartN
+FROM (Family INNER JOIN ((Classes INNER JOIN Students ON Classes.ClassID = Students.CurrentClass) INNER JOIN FeeDefinitation ON Students.CC = FeeDefinitation.FK_CC) ON Family.FormID = Students.FamilyID) INNER JOIN Departments ON Classes.DeptNo = Departments.DeptNo
+WHERE (((Students.Status)=True))
+ORDER BY Students.CC;
+

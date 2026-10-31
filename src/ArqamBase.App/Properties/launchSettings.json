@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "ArqamBase": {
+      "commandName": "Project"
+    },
+    "ArqamBase (open Setup lists)": {
+      "commandName": "Project",
+      "commandLineArgs": "--open setuplists"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+﻿SELECT Students.CC, Students.Name, Students.CurrentClass, Students.CurrentSection, Family.FormID, Family.FatherName, Attendance.AT_ID, Students.Status, Attendance.FK_CC, Attendance.peroid, Attendance.[1], Attendance.[2], Attendance.[3], Attendance.[4], Attendance.[5], Attendance.[6], Attendance.[7], Attendance.[8], Attendance.[9], Attendance.[10], Attendance.[11], Attendance.[12], Attendance.[13], Attendance.[14], Attendance.[15], Attendance.[16], Attendance.[17], Attendance.[18], Attendance.[19], Attendance.[20], Attendance.[21], Attendance.[22], Attendance.[23], Attendance.[24], Attendance.[25], Attendance.[26], Attendance.[27], Attendance.[28], Attendance.[29], Attendance.[30], Attendance.[31]
+FROM Family INNER JOIN (Students LEFT JOIN Attendance ON Students.CC = Attendance.FK_CC) ON Family.FormID = Students.FamilyID
+WHERE (((Students.Status)=True));
+

@@ -1,0 +1,463 @@
+Option Compare Database
+Option Explicit
+
+
+'use to open an existing key
+Private Declare PtrSafe Function RegOpenKeyEx Lib "advapi32.dll" Alias "RegOpenKeyExA" ( _
+ByVal hKey As Long, ByVal lpSubKey As String, ByVal ulOptions As Long, _
+ByVal samDesired As Long, phkResult As Long) As Long
+
+'use to create a non-existent key, or alternate way to OPEN an existing key
+Declare PtrSafe Function RegCreateKeyEx Lib "advapi32.dll" Alias "RegCreateKeyExA" ( _
+ByVal hKey As Long, ByVal lpSubKey As String, ByVal ulReserved As Long, _
+ByVal lpClass As String, ByVal dwOptions As Long, ByVal samDesired As Long, _
+lpSecurityAttributes As Any, phkResult As Long, lpdwDispostion As Long) As Long
+
+'use to close any open key
+Declare PtrSafe Function RegCloseKey Lib "advapi32.dll" (ByVal hKey As Long) As Long
+'Private Declare Function RegCloseKey Lib "advapi32" (ByVal hKey As Long) As Long
+
+'use to get a value
+Declare PtrSafe Function RegQueryValueEx Lib "advapi32.dll" Alias "RegQueryValueExA" ( _
+ByVal hKey As Long, ByVal lpValueName As String, ByVal dwReserved As Long, _
+lpType As Long, lpData As Any, lpcbData As Long) As Long
+
+'use to set a value
+Private Declare PtrSafe Function RegSetValueEx Lib "advapi32.dll" Alias "RegSetValueExA" ( _
+ByVal hKey As Long, ByVal lpValueName As String, ByVal dwReserved As Long, _
+ByVal dwType As Long, lpData As Any, ByVal cbData As Long) As Long
+
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (dest As _
+    Any, Source As Any, ByVal numBytes As Long)
+
+Const KEY_READ = &H20019  ' ((READ_CONTROL Or KEY_QUERY_VALUE Or
+                          ' KEY_ENUMERATE_SUB_KEYS Or KEY_NOTIFY) And (Not
+                          ' SYNCHRONIZE))
+
+Const REG_SZ = 1
+Const REG_EXPAND_SZ = 2
+Const REG_BINARY = 3
+Const REG_DWORD = 4
+Const REG_MULTI_SZ = 7
+Const ERROR_MORE_DATA = 234
+
+' Registry constants
+Global Const dhcSuccess = 0
+Global Const dhcRegMaxDataSize = 2048
+Global Const dhcRegNone = 0
+Global Const dhcRegSz = 1
+Global Const dhcRegExpandSz = 2
+Global Const dhcRegBinary = 3
+Global Const dhcRegDWord = 4
+Global Const dhcRegDWordLittleEndian = 4
+Global Const dhcRegDWordBigEndian = 5
+Global Const dhcRegLink = 6
+Global Const dhcRegMultiSz = 7
+Global Const dhcRegResourceList = 8
+Global Const dhcRegFullResourceDescriptor = 9
+Global Const dhcRegResourceRequirementsList = 10
+Global Const dhcRegOptionReserved = 0
+Global Const dhcRegOptionNonVolatile = 0
+Global Const dhcRegOptionVolatile = 1
+Global Const dhcRegOptionCreateLink = 2
+Global Const dhcRegOptionBackupRestore = 4
+Global Const dhcReadControl = &H20000
+Global Const dhcKeyQueryValue = &H1
+Global Const dhcKeySetValue = &H2
+Global Const dhcKeyCreateSubKey = &H4
+Global Const dhcKeyEnumerateSubKeys = &H8
+Global Const dhcKeyNotify = &H10
+Global Const dhcKeyCreateLink = &H20
+Global Const dhcKeyRead = dhcKeyQueryValue + dhcKeyEnumerateSubKeys + _
+ dhcKeyNotify + dhcReadControl
+Global Const dhcKeyWrite = dhcKeySetValue + dhcKeyCreateSubKey + dhcReadControl
+Global Const dhcKeyExecute = dhcKeyRead
+Global Const dhcKeyAllAccess = dhcKeyQueryValue + dhcKeySetValue + _
+ dhcKeyCreateSubKey + dhcKeyEnumerateSubKeys + _
+ dhcKeyNotify + dhcKeyCreateLink + dhcReadControl
+Global Const dhcHKeyClassesRoot = &H80000000
+Global Const dhcHKeyCurrentUser = &H80000001
+Global Const dhcHKeyLocalMachine = &H80000002
+Global Const dhcHKeyUsers = &H80000003
+Global Const dhcHKeyPerformanceData = &H80000004
+
+
+Public Function GetValue(OpenedKey As Long, RegistryValueName As String) As String
+'purpose: this function will return the data that is stored in a value of the
+'         specified key
+'( Note * this function requires a valid reference to an opened key.)
+'parameters: OpenedKey - reference of a valid key that was returned by createKey()
+'            RegistryValueName - the name of a value that you wish queried for data
+'returns: string containing the data that is stored in the value specified
+
+Dim regVal As String
+Dim Result As Long
+Dim strLen As Long
+
+regVal = Space(255)
+strLen = Len(regVal)
+
+Result = RegQueryValueEx(OpenedKey, RegistryValueName, 0&, dhcRegSz, ByVal regVal, strLen)
+If Result = 0 Then  ' no problem, return the string
+    GetValue = Left(regVal, strLen - 1)
+Else ' there was a problem, return ""
+    GetValue = ""
+End If
+End Function
+Public Function GetRegistryValue(ByVal hKey As Long, ByVal KeyName As String, _
+    ByVal ValueName As String, Optional DefaultValue As Variant) As Variant
+    Dim handle As Long
+    Dim resLong As Long
+    Dim resString As String
+    Dim resBinary() As Byte
+    Dim Length As Long
+    Dim retVal As Long
+    Dim valueType As Long
+    
+    ' Prepare the default result
+    GetRegistryValue = IIf(IsMissing(DefaultValue), Empty, DefaultValue)
+    
+    ' Open the key, exit if not found.
+    'If RegOpenKeyEx(hKey, KeyName, 0, KEY_READ, handle) Then
+    '    Exit Function
+    'End If
+    
+    ' prepare a 1K receiving resBinary
+    Length = 1024
+    ReDim resBinary(0 To Length - 1) As Byte
+    
+    ' read the registry key
+    retVal = RegQueryValueEx(hKey, KeyName, 0, valueType, resBinary(0), _
+        Length)
+    ' if resBinary was too small, try again
+    If retVal = ERROR_MORE_DATA Then
+        ' enlarge the resBinary, and read the value again
+        ReDim resBinary(0 To Length - 1) As Byte
+        retVal = RegQueryValueEx(handle, ValueName, 0, valueType, resBinary(0), _
+            Length)
+    End If
+    
+    ' return a value corresponding to the value type
+    Select Case valueType
+        Case REG_DWORD
+            CopyMemory resLong, resBinary(0), 4
+            GetRegistryValue = resLong
+        Case REG_SZ, REG_EXPAND_SZ
+            ' copy everything but the trailing null char
+            resString = Space$(Length - 1)
+            CopyMemory ByVal resString, resBinary(0), Length - 1
+            GetRegistryValue = resString
+        Case REG_BINARY
+            ' resize the result resBinary
+            If Length <> UBound(resBinary) + 1 Then
+                ReDim Preserve resBinary(0 To Length - 1) As Byte
+            End If
+            GetRegistryValue = resBinary()
+        Case REG_MULTI_SZ
+            ' copy everything but the 2 trailing null chars
+            resString = Space$(Length - 2)
+            CopyMemory ByVal resString, resBinary(0), Length - 2
+            GetRegistryValue = resString
+        Case Else
+            RegCloseKey handle
+            'Err.Raise 1001, , "Unsupported value type"
+    End Select
+    
+    ' close the registry key
+    RegCloseKey handle
+End Function
+Public Function CreateKey(KeyToCreate As String) As Long
+'purpose:    Used to create a new key in the hive "HKEY_CURRENT_USER\Software"
+'            or open an existing key if it already exist
+'parameters: KeyToCreate: this is the new key that you wish to create in the above described Hive
+'returns:    This will return a reference to the newly opened key
+Dim Result As Long
+Dim KeyToOpen As String
+Dim hKeyNew As Long
+Dim lngDisposition As Long
+Dim hOpenedKey As Long
+Dim hKeyDesktop As Long
+ 
+ 
+ 
+    KeyToOpen = "Software"
+    Result = RegOpenKeyEx(dhcHKeyCurrentUser, KeyToOpen, 0&, dhcKeyAllAccess, hOpenedKey)
+    If Result = dhcSuccess Then
+        lngDisposition = 0&
+        'now create the certa key, if it does not exist, otherwise open it
+        Result = RegCreateKeyEx(hOpenedKey, KeyToCreate, 0&, "", dhcRegOptionNonVolatile, _
+                                dhcKeyAllAccess, ByVal 0&, hKeyNew, lngDisposition)
+        'If the key existed or was added, return the handle to the key, otherwise return 0
+        If lngDisposition = 1 Or lngDisposition = 2 Then
+            CreateKey = hKeyNew
+        Else ' there was an error
+            MsgBox "There was an error opening or creating the key " & KeyToCreate
+            CreateKey = 0 ' error
+        End If
+    Else
+        MsgBox "There was an error opening the key " & KeyToOpen
+    End If
+ 
+
+End Function
+Public Function SetValue(hOpenedKey As Long, valName As String, valData As String) As Boolean
+On Error GoTo Err_SetValue
+'purpose: this function will set the data that is stored in a value of the
+'         specified key.  this will also create the value, if not currently existing.
+'( Note * this function requires a valid reference to an opened key.)
+'parameters: hOpenedKey - reference of a valid key that was returned by createKey()
+'            valName - the name of a value to store data in
+'            valData - the actual data to be stored
+'returns: None
+SetValue = False
+Dim Result As Long
+Dim strLen As Long
+'first we need to write a null terminated string(0&), to erase any
+'erroneous data that may be lying around
+Rem strLen = 0
+Rem Result = RegSetValueEx(hOpenedKey, valName, 0&, dhcRegSz, ByVal 0&, strLen)
+'now write the actual data
+strLen = Len(valData)
+Result = RegSetValueEx(hOpenedKey, valName, 0&, dhcRegSz, ByVal valData, strLen)
+'MsgBox result
+SetValue = True
+
+Exit_SetValue:
+    Exit Function
+    
+Err_SetValue:
+    MsgBox "Set Value " & Err.Description
+    Resume Exit_SetValue
+    
+End Function
+
+Public Sub RecordFilelocation(DataPath As String)
+On Error GoTo Err_RecordFilelocation
+'get a reference to the key "WinFactor"
+'if the named key does not exist, createkey() will create it and open it
+'if the named key does exist, createkey() will open it
+Dim OpenKey As Long
+OpenKey = CreateKey("WinFactor")
+If OpenKey = 0 Then
+    MsgBox "There was a problem opening the registry key winfactor"
+Else
+    If SetValue(OpenKey, "path_data_files", DataPath) Then
+        'no problem, the value was updated
+    Else
+        MsgBox "There was an error updating the registry setting. path_data_files" & DataPath
+    End If
+End If
+
+Exit_RecordFilelocation:
+    Exit Sub
+
+Err_RecordFilelocation:
+    MsgBox "RecordFilelocation: " & Err.Description
+    Resume Exit_RecordFilelocation
+    
+End Sub
+
+Public Function ReadInDPIRegistrySetting() As Long
+
+'Public Function CreateKey(KeyToCreate As String) As Long
+'purpose:    Used to create a new key in the hive "HKEY_CURRENT_USER\Software"
+'            or open an existing key if it already exist
+'parameters: KeyToCreate: this is the new key that you wish to create in the above described Hive
+'returns:    This will return a reference to the newly opened key
+Dim Result As Long
+Dim KeyToOpen As String
+Dim hKeyNew As Long
+Dim lngDisposition As Long
+Dim hOpenedKey As Long
+Dim hKeyDesktop As Long
+ 
+ Dim LogPixelsKeyValue As Variant
+ 
+    KeyToOpen = "Control Panel\Desktop"
+    Result = RegOpenKeyEx(dhcHKeyCurrentUser, KeyToOpen, 0&, dhcKeyAllAccess, hOpenedKey)
+    If Result = dhcSuccess Then
+        
+        'result = RegCreateKeyEx(hOpenedKey, KeyToCreate, 0&, "", dhcRegOptionNonVolatile,                                 dhcKeyAllAccess, ByVal 0&, hKeyNew, lngDisposition)
+        'LogPixelsKeyValue = GetLongValue(hOpenedKey, "LogPixels")
+        LogPixelsKeyValue = GetRegistryValue(hOpenedKey, "LogPixels", "", "")
+        If IsNumeric(LogPixelsKeyValue) Then
+            ReadInDPIRegistrySetting = LogPixelsKeyValue
+        Else
+            ReadInDPIRegistrySetting = 0
+        End If
+    Else
+        MsgBox "There was an error opening the key " & KeyToOpen
+    End If
+ 
+
+
+
+End Function
+Public Sub AddLocationasTrusted()
+    Const HKEY_CURRENT_USER = &H80000001
+ 
+    Dim oRegistry
+    Dim sPath           'Path to set as a Trusted Location
+    Dim sDescription        'Description of the Trusted Location
+    Dim bAllowSubFolders        'Enable subFolders as Trusted Locations
+    Dim bAllowNetworkLocations  'Enable Network Locations as Trusted
+                    '   Locations
+    Dim bAlreadyExists
+    Dim sParentKey
+    Dim iLocCounter
+    Dim arrChildKeys
+    Dim sChildKey
+    Dim sValue
+    Dim sNewKey
+ 
+ 
+
+    '*******************************************************************************
+    'grab the object for the registry
+    Set oRegistry = GetObject("winmgmts:\\.\root\default:StdRegProv")
+    'This is the path you want trusted
+    sPath = "D:\Users\" & Environ("USERNAME") & "\Documents\"  'ie: c:\databases\
+    'This is the description
+    sDescription = "Trust Files in MyDocuments Folder V1"
+    
+    
+ 
+    sParentKey = "Software\Microsoft\Office\16.0\Access\Security\Trusted Locations"
+
+    iLocCounter = 0
+    oRegistry.EnumKey HKEY_CURRENT_USER, sParentKey, arrChildKeys
+    For Each sChildKey In arrChildKeys
+        oRegistry.GetStringValue HKEY_CURRENT_USER, sParentKey & "\" & sChildKey, "Description", sValue
+        'Check to see if the key already exist (by description)
+        If sValue = sDescription Then
+            'the key already exist, no need to add it again
+            Exit Sub
+        End If
+        
+        'build a counter of the location number (used later to add one with a unique location)
+        If CInt(Mid(sChildKey, 9)) > iLocCounter Then
+            iLocCounter = CInt(Mid(sChildKey, 9))
+        End If
+    Next
+ 
+    'add the key!
+    sNewKey = sParentKey & "\Location" & CStr(iLocCounter + 1)
+
+    oRegistry.CreateKey HKEY_CURRENT_USER, sNewKey
+    oRegistry.SetStringValue HKEY_CURRENT_USER, sNewKey, "Path", sPath
+    oRegistry.SetStringValue HKEY_CURRENT_USER, sNewKey, "Description", sDescription
+
+
+    
+End Sub
+
+
+
+
+
+Public Function Encrypt(strvalue As String) As String
+
+Const LowerAlpha    As String = "abcdefghijklmnopqrstuvwxyz"
+Const LowerSub      As String = "zebrascdfghijklmnopqtuvwxy" 'zebras
+Const UpperAlpha    As String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+Const UpperSub      As String = "ZEBRASCDFGHIJKLMNOPQTUVWXY" 'ZEBRAS
+
+Dim lngi            As Long
+Dim lngE            As Long
+Dim strEncrypt      As String
+Dim strLetter       As String
+
+If strvalue & "" = "" Then Exit Function
+
+For lngi = 1 To Len(strvalue)
+
+    strLetter = Mid(strvalue, lngi, 1)
+
+    Select Case Asc(strLetter)
+
+        Case 65 To 90 'Uppercase
+            'Find position in alpha string
+            For lngE = 1 To Len(UpperAlpha)
+                If Mid(UpperAlpha, lngE, 1) = strLetter Then GoTo USub
+            Next
+USub:
+            strEncrypt = strEncrypt & Mid(UpperSub, lngE, 1)
+
+        Case 97 To 122 'Lowercase
+            'Find position in alpha string
+            For lngE = 1 To Len(LowerAlpha)
+                If Mid(LowerAlpha, lngE, 1) = strLetter Then GoTo LSub
+            Next
+LSub:
+            strEncrypt = strEncrypt & Mid(LowerSub, lngE, 1)
+
+        Case Else 'Do not substitute
+
+            strEncrypt = strEncrypt & strLetter
+
+    End Select
+
+Next
+
+'Now pass this string through ROT13 for another tier of security
+
+For lngi = 1 To Len(strEncrypt)
+    Encrypt = Encrypt & Chr(Asc(Mid(strEncrypt, lngi, 1)) + 13)
+Next
+
+End Function
+
+
+Public Function Decrypt(strvalue As String) As String
+
+Const LowerAlpha    As String = "abcdefghijklmnopqrstuvwxyz"
+Const LowerSub      As String = "zebrascdfghijklmnopqtuvwxy" 'zebras
+Const UpperAlpha    As String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+Const UpperSub      As String = "ZEBRASCDFGHIJKLMNOPQTUVWXY" 'ZEBRAS
+
+Dim lngi            As Long
+Dim lngE            As Long
+Dim strDecrypt      As String
+Dim strLetter       As String
+
+If strvalue & "" = "" Then Exit Function
+
+'Reverse the ROT13 cipher
+
+For lngi = 1 To Len(strvalue)
+    strDecrypt = strDecrypt & Chr(Asc(Mid(strvalue, lngi, 1)) - 13)
+Next
+
+'Now reverse the encryption
+
+For lngi = 1 To Len(strDecrypt)
+
+    strLetter = Mid(strDecrypt, lngi, 1)
+
+    Select Case Asc(strLetter)
+
+        Case 65 To 90 'Uppercase
+            'Find position in sub string
+            For lngE = 1 To Len(UpperSub)
+                If Mid(UpperSub, lngE, 1) = strLetter Then GoTo USub
+            Next
+USub:
+            Decrypt = Decrypt & Mid(UpperAlpha, lngE, 1)
+
+        Case 97 To 122 'Lowercase
+            'Find position in sub string
+            For lngE = 1 To Len(LowerSub)
+                If Mid(LowerSub, lngE, 1) = strLetter Then GoTo LSub
+            Next
+LSub:
+            Decrypt = Decrypt & Mid(LowerAlpha, lngE, 1)
+
+        Case Else 'Do not substitute
+
+            Decrypt = Decrypt & strLetter
+
+    End Select
+
+Next
+
+End Function

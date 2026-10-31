@@ -1,0 +1,316 @@
+Option Compare Database
+Option Explicit
+
+Function IsLoaded(ByVal strFormName As String) As Boolean
+ ' Returns True if the specified form is open in Form view or Datasheet view.
+    
+    Const conObjStateClosed = 0
+    Const conDesignView = 0
+    
+    If SysCmd(acSysCmdGetObjectState, acForm, strFormName) <> conObjStateClosed Then
+        If Forms(strFormName).CurrentView <> conDesignView Then
+            IsLoaded = True
+        End If
+    End If
+    
+End Function
+        
+    Sub Test()
+    Dim TestDate As Date
+        TestDate = CDate(#5/1/2013#)
+    Dim dtString As String
+        dtString = DateInWords(TestDate)
+     
+        MsgBox (dtString)
+    End Sub
+     
+    Function DateInWords(dt As Date) As String
+    Dim strDays As String, SplitDays
+        strDays = "First of ,Second of,Third of ,Four,Five,Day_6,Day_7,Day_8,Day_9,Day_10,Day_11,Day_12,Day_13,Day_14,Day_15,Day_16,Day_17,Day_18,Day_19,Day_20,Day_21,Day_22,Day_23,Day_24,Day_25,Day_26,Day_27,Day_28,Day_29,Day_30,Day_31"
+        SplitDays = Split(strDays, ",")
+    Dim strMothes As String, SplitMonthes
+        strMothes = "January,February,March,April,May,June,Jul,August,September,October,November,December"
+        SplitMonthes = Split(strMothes, ",")
+    Dim strYears As String, SplitYears
+        strYears = "Year_2010,Year_2011,Year_2012,Year_2013,Year_2014,Year_2015,Year_2016,Year_2017,Year_2018,Year_2019,Year_2020"
+        SplitYears = Split(strYears, ",")
+     
+    Dim strDay As String
+        strDay = SplitDays(Day(dt) - 1)
+  
+    Dim strMonth As String
+        strMonth = SplitMonthes(Month(dt) - 1)
+        
+    Dim strYear As String
+        'strYear = SplitYears(Year(dt) - 1980)
+ 
+        DateInWords = strMonth
+    End Function
+
+
+Function ConvertCurrencyToEnglish(ByVal MyNumber)
+ Dim Temp
+ Dim Pounds, Pence
+ Dim DecimalPlace, count
+
+ ReDim Place(9) As String
+ Place(2) = " Thousand "
+ Place(3) = " Million "
+ Place(4) = " Billion "
+ Place(5) = " Trillion "
+
+ ' Convert MyNumber to a string, trimming extra spaces.
+ MyNumber = Trim(Str(MyNumber))
+
+ ' Find decimal place.
+ DecimalPlace = InStr(MyNumber, ".")
+
+ ' If we find decimal place...
+ If DecimalPlace > 0 Then
+ ' Convert cents
+ Temp = Left(Mid(MyNumber, DecimalPlace + 1) & "00", 2)
+ Pence = ConvertTens(Temp)
+
+ ' Strip off cents from remainder to convert.
+ MyNumber = Trim(Left(MyNumber, DecimalPlace - 1))
+ End If
+
+ count = 1
+ Do While MyNumber <> ""
+ ' Convert last 3 digits of MyNumber to English dollars.
+ Temp = ConvertHundreds(Right(MyNumber, 3))
+ If Temp <> "" Then Pounds = Temp & Place(count) & Pounds
+ If Len(MyNumber) > 3 Then
+ ' Remove last 3 converted digits from MyNumber.
+ MyNumber = Left(MyNumber, Len(MyNumber) - 3)
+ Else
+ MyNumber = ""
+ End If
+ count = count + 1
+ Loop
+
+ ' Clean up dollars.
+ Select Case Pounds
+ Case ""
+ Pounds = "No Pounds"
+ Case "One"
+ Pounds = ""
+ Case Else
+ Pounds = Pounds & ""
+ End Select
+
+ ' Clean up cents.
+ Select Case Pence
+ Case ""
+ Pence = ""
+ Case "One"
+ Pence = ""
+ Case Else
+ Pence = "" & Pence & ""
+ End Select
+
+ ConvertCurrencyToEnglish = Pounds & Pence
+
+ End Function
+
+
+ Private Function ConvertDigit(ByVal MyDigit)
+ Select Case Val(MyDigit)
+ Case 1: ConvertDigit = "One"
+ Case 2: ConvertDigit = "Two"
+ Case 3: ConvertDigit = "Three"
+ Case 4: ConvertDigit = "Four"
+ Case 5: ConvertDigit = "Five"
+ Case 6: ConvertDigit = "Six"
+ Case 7: ConvertDigit = "Seven"
+ Case 8: ConvertDigit = "Eight"
+ Case 9: ConvertDigit = "Nine"
+ Case Else: ConvertDigit = ""
+ End Select
+
+ End Function
+
+ Private Function ConvertHundreds(ByVal MyNumber)
+ Dim Result As String
+
+ ' Exit if there is nothing to convert.
+ If Val(MyNumber) = 0 Then Exit Function
+
+ ' Append leading zeros to number.
+ MyNumber = Right("000" & MyNumber, 3)
+
+ ' Do we have a hundreds place digit to convert?
+ If Left(MyNumber, 1) <> "0" Then
+ Result = ConvertDigit(Left(MyNumber, 1)) & " Hundred And "
+ End If
+
+ ' Do we have a tens place digit to convert?
+ If Mid(MyNumber, 2, 1) <> "0" Then
+ Result = Result & ConvertTens(Mid(MyNumber, 2))
+ Else
+ ' If not, then convert the ones place digit.
+ Result = Result & ConvertDigit(Mid(MyNumber, 3))
+ End If
+
+ ConvertHundreds = Trim(Result)
+ End Function
+
+
+ Private Function ConvertTens(ByVal MyTens)
+ Dim Result As String
+
+ ' Is value between 10 and 19?
+ If Val(Left(MyTens, 1)) = 1 Then
+ Select Case Val(MyTens)
+ Case 10: Result = "Ten"
+ Case 11: Result = "Eleven"
+ Case 12: Result = "Twelve"
+ Case 13: Result = "Thirteen"
+ Case 14: Result = "Fourteen"
+ Case 15: Result = "Fifteen"
+ Case 16: Result = "Sixteen"
+ Case 17: Result = "Seventeen"
+ Case 18: Result = "Eighteen"
+ Case 19: Result = "Nineteen"
+ Case Else
+ End Select
+ Else
+ ' .. otherwise it's between 20 and 99.
+ Select Case Val(Left(MyTens, 1))
+ Case 2: Result = "Twenty "
+ Case 3: Result = "Thirty "
+ Case 4: Result = "Forty "
+ Case 5: Result = "Fifty "
+ Case 6: Result = "Sixty "
+ Case 7: Result = "Seventy "
+ Case 8: Result = "Eighty "
+ Case 9: Result = "Ninety "
+ Case Else
+ End Select
+
+ ' Convert ones place digit.
+ Result = Result & ConvertDigit(Right(MyTens, 1))
+ End If
+
+ ConvertTens = Result
+ End Function
+
+
+
+Function dmwListLinkedTables() As String
+
+On Error GoTo ErrHandler
+
+Dim dbs As Object, tblDef As AccessObject
+
+Dim msg$
+
+Dim tblType%
+
+Set dbs = Application.CurrentData
+If MsgBox("Are you sure you want to remove dbo_ prefix from all the SQL server attached tables ", vbInformation + vbYesNo, "Logic Consultants Table rename system .... ") = vbYes Then
+
+    For Each tblDef In dbs.AllTables
+    
+    tblType% = Nz(DLookup("Type", "MSysObjects", "Name = '" & tblDef.Name & "'"), 0)
+    
+        If Left(tblDef.Name, 4) = "dbo_" Then
+            'debug.print tblDef.Name
+           ' 'debug.print Right(tblDef.Name, Len(tblDef.Name) - 4)
+            DoCmd.Rename Right(tblDef.Name, Len(tblDef.Name) - 4), acTable, tblDef.Name
+        End If
+    
+    
+    Next tblDef
+    
+    msg$ = "Table listing complete"
+
+Else
+    MsgBox "Operation Canceled  .... ! ", vbExclamation, "Logic Consultants Table rename system ... ! "
+End If
+
+procDone:
+
+dmwListLinkedTables = msg$
+
+Exit Function
+
+ErrHandler:
+
+msg$ = Err.Number & " " & Err.Description
+
+Resume procDone
+
+End Function
+
+
+Public Function AuthenticateUser(UserName As String, Password As String) As Boolean
+
+    On Error GoTo AuthenticateUser_err
+Dim strSQL As String
+Dim userID As Integer
+    
+userID = Nz(DLookup("ID", "Users", "Login='" & UserName & "' and password='" & Password & "'"), 0)
+    If userID >= 1 Then
+        AuthenticateUser = True
+    strSQL = "insert into tblLoginLog ([UserName],[LoginAttempt],[LoginDateTime],[SystemName],[OSProfileName],[SystemMac],[LoginID])" & _
+             " values ('" & UserName & "','Success', #" & Now & "#, '" & Environ("Computername") & "','" & Environ("Username") & "','" & Mac_ID & "',1);"
+    Debug.Print strSQL
+    
+    DoCmd.RunSQL strSQL
+    
+    
+    Else
+        AuthenticateUser = False
+        strSQL = "insert into tblLoginLog ([UserName],[LoginAttempt],[LoginDateTime],[SystemName],[OSProfileName],[SystemMac],[LoginID])" & _
+             " values ('" & UserName & "','Un successful', #" & Now & "#, '" & Environ("Computername") & "','" & Environ("Username") & "','" & Mac_ID & "',1);"
+        Debug.Print strSQL
+        DoCmd.RunSQL strSQL
+    End If
+
+Exit Function
+AuthenticateUser_err:
+MsgBox Err.Description
+End Function
+
+
+Public Function Mac_ID() As String
+Dim strCom As String
+Dim objWMIService As Object
+Dim colAdapters As Object
+Dim objAdapter As Object
+strCom = "."
+Set objWMIService = GetObject _
+("winmgmts:" & "!\\" & strCom & "\root\cimv2")
+Set colAdapters = objWMIService.ExecQuery _
+("Select * from Win32_NetworkAdapterConfiguration Where IPEnabled = True")
+For Each objAdapter In colAdapters
+'Debug.Print "MAC ID of this system : " & objAdapter.MACAddress
+    Mac_ID = objAdapter.MACAddress
+Next objAdapter
+
+
+End Function
+
+Public Function ExtractBetweencaharacters(inputStr As String, quoted As String) As String
+'This function extract the character from a string quoted between a specail character.
+    Dim startPos As Long
+    Dim endPos As Long
+
+    startPos = InStr(1, inputStr, quoted) + 1
+    endPos = InStr(startPos, inputStr, quoted)
+
+    If startPos > 1 And endPos > startPos Then
+        ExtractBetweencaharacters = Mid(inputStr, startPos, endPos - startPos)
+    Else
+        ExtractBetweencaharacters = ""
+    End If
+End Function
+
+
+Public Function GetCurrentUserGroup() As Integer
+Dim usrGroup As String
+    GetCurrentUserGroup = DLookup("userGroup", "users", "login='" & Form_frmLogin.txtUserName & "'")
+    
+
+End Function

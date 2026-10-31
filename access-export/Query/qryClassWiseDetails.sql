@@ -1,0 +1,4 @@
+﻿SELECT Departments.DepartN, Classes.ClassFltr, Classes.ClassNam, Students.CC, Students.Name, Family.FatherName, Students.CurrentClass, Students.CurrentSection, FeeDefinitation.TuitionFee, Students.Status, Students.Remarks, Family.FamilyNotes, Family.SpecialInstructions, Students.BirthDate, Students.PromotionDate, Students.AdmissionDate, Students.Flag, Students.FamilyID, Students.[DS#], Family.Mobile, Family.Mcell, Family.EmerNo, Family.PhHome, Family.PhOffice
+FROM (Departments INNER JOIN Classes ON Departments.DeptNo = Classes.DeptNo) INNER JOIN (Family INNER JOIN (Students INNER JOIN FeeDefinitation ON Students.CC = FeeDefinitation.FK_CC) ON Family.FormID = Students.FamilyID) ON Classes.ClassID = Students.CurrentClass
+WHERE (((Students.CurrentClass)=Forms!frmClassFeeIncrease!cboClass) And ((Students.CurrentSection)=Forms!frmClassFeeIncrease!cboSection) And ((Students.Status)=True));
+

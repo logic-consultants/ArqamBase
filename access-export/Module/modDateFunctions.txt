@@ -1,0 +1,138 @@
+Option Compare Database
+Option Explicit
+
+Sub Test()
+Dim TestDate As Date
+TestDate = CDate("11/04/2013")
+Dim dtString As String
+dtString = DateInWords(TestDate)
+MsgBox (dtString)
+End Sub
+ 
+ 
+Function DateInWords2(dt As Date) As String
+Dim strDays As String, SplitDays
+strDays = "first,second,third,fourth,fifth," & _
+    "sixth,seventh,eighth,ninth,tenth,11th,12th," & _
+    "13th,14th,15th,16th,17th,18th,19th,20th," & _
+    "21st,22nd,23rd,24th,25th,26th,27th,28th," & _
+    "29th,30th,31th"
+SplitDays = Split(strDays, ",")
+ 
+Dim strDay As String
+strDay = SplitDays(Day(dt) - 1)
+ 
+Dim strMonth As String
+strMonth = Format(dt, "mmmm")
+ 
+Dim strYear As String
+ 
+Dim intYear As Integer
+Dim yyyy, y1, y2, y3 As Integer
+strYear = Format(dt, "yyyy")
+ 
+strYear = SpellNumber(strYear)
+ 
+DateInWords2 = strDay & " " & strMonth & ", " & strYear
+End Function
+ 
+ 
+Function SpellNumber(MyNumber)
+Dim Dollars, Cents, Temp
+Dim DecimalPlace, count
+ReDim Place(9) As String
+Place(2) = " Thousand "
+Place(3) = " Million "
+Place(4) = " Billion "
+Place(5) = " Trillion "
+ 
+' String representation of amount.
+ 
+MyNumber = Trim(Str(MyNumber))
+' Position of decimal place 0 if none.
+DecimalPlace = InStr(MyNumber, ".")
+count = 1
+Do While MyNumber <> ""
+Temp = GetHundreds(Right(MyNumber, 3))
+If Temp <> "" Then Dollars = Temp & Place(count) & Dollars
+If Len(MyNumber) > 3 Then
+MyNumber = Left(MyNumber, Len(MyNumber) - 3)
+Else
+MyNumber = ""
+End If
+count = count + 1
+Loop
+SpellNumber = Dollars & Cents
+End Function
+ 
+' Converts a number from 100-999 into text
+Function GetHundreds(ByVal MyNumber)
+Dim Result As String
+If Val(MyNumber) = 0 Then Exit Function
+MyNumber = Right("000" & MyNumber, 3)
+' Convert the hundreds place.
+If Mid(MyNumber, 1, 1) <> "0" Then
+Result = GetDigit(Mid(MyNumber, 1, 1)) & " Hundred "
+End If
+ 
+' Convert the tens and ones place.
+If Mid(MyNumber, 2, 1) <> "0" Then
+Result = Result & GetTens(Mid(MyNumber, 2))
+Else
+Result = Result & GetDigit(Mid(MyNumber, 3))
+End If
+GetHundreds = Result
+End Function
+ 
+' Converts a number from 10 to 99 into text.
+Function GetTens(TensText)
+Dim Result As String
+Result = "" ' Null out the temporary function value.
+If Val(Left(TensText, 1)) = 1 Then ' If value between 10-19...
+Select Case Val(TensText)
+Case 10: Result = "Ten"
+Case 11: Result = "Eleven"
+Case 12: Result = "Twelve"
+Case 13: Result = "Thirteen"
+Case 14: Result = "Fourteen"
+Case 15: Result = "Fifteen"
+Case 16: Result = "Sixteen"
+Case 17: Result = "Seventeen"
+Case 18: Result = "Eighteen"
+Case 19: Result = "Nineteen"
+Case Else
+End Select
+Else ' If value between 20-99...
+Select Case Val(Left(TensText, 1))
+Case 2: Result = "Twenty "
+Case 3: Result = "Thirty "
+Case 4: Result = "Forty "
+Case 5: Result = "Fifty "
+Case 6: Result = "Sixty "
+Case 7: Result = "Seventy "
+Case 8: Result = "Eighty "
+Case 9: Result = "Ninety "
+Case Else
+End Select
+Result = Result & GetDigit(Right(TensText, 1)) ' Retrieve ones place.
+End If
+GetTens = Result
+End Function
+ 
+ 
+' Converts a number from 1 to 9 into text.
+ 
+Function GetDigit(Digit)
+Select Case Val(Digit)
+Case 1: GetDigit = "One"
+Case 2: GetDigit = "Two"
+Case 3: GetDigit = "Three"
+Case 4: GetDigit = "Four"
+Case 5: GetDigit = "Five"
+Case 6: GetDigit = "Six"
+Case 7: GetDigit = "Seven"
+Case 8: GetDigit = "Eight"
+Case 9: GetDigit = "Nine"
+Case Else: GetDigit = ""
+End Select
+End Function

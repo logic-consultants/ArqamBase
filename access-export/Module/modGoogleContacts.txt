@@ -1,0 +1,826 @@
+Option Compare Database
+Option Explicit
+
+
+Private Const GOOGLE_CONTACTS_TABLE As String = "GoogleContacts"
+
+Private Const GOOGLE_CONTACTS_URL As String = _
+    "https://people.googleapis.com/v1/people/me/connections"
+
+'=========================================================
+' MAIN FUNCTION
+'=========================================================
+Public Function FetchAllGoogleContacts( _
+    ByVal AccessToken As String _
+) As Long
+
+    Dim Http As Object
+    Dim JsonResponse As Object
+    Dim Person As Variant
+
+    Dim RequestUrl As String
+    Dim PageToken As String
+    Dim ImportedCount As Long
+
+    On Error GoTo ErrorHandler
+
+    If Len(Trim$(AccessToken)) = 0 Then
+        Err.Raise vbObjectError + 2000, _
+                  "FetchAllGoogleContacts", _
+                  "Google access token is missing."
+    End If
+
+    Set Http = CreateObject("WinHttp.WinHttpRequest.5.1")
+
+    Do
+        RequestUrl = BuildGoogleContactsUrl(PageToken)
+
+        Http.Open "GET", RequestUrl, False
+        Http.SetRequestHeader _
+            "Authorization", _
+            "Bearer " & AccessToken
+
+        Http.SetRequestHeader "Accept", "application/json"
+
+        Http.SetTimeouts _
+            30000, _
+            30000, _
+            60000, _
+            60000
+
+        Http.Send
+
+        If Http.Status < 200 Or Http.Status >= 300 Then
+            Err.Raise vbObjectError + 2001, _
+                      "FetchAllGoogleContacts", _
+                      "Google People API request failed." & vbCrLf & _
+                      "HTTP Status: " & Http.Status & vbCrLf & _
+                      Http.ResponseText
+        End If
+
+        Set JsonResponse = _
+            JsonConverter.ParseJson(Http.ResponseText)
+
+        If JsonResponse.Exists("connections") Then
+
+            For Each Person In JsonResponse("connections")
+
+                SaveGoogleContact Person
+
+                ImportedCount = ImportedCount + 1
+
+                If ImportedCount Mod 25 = 0 Then
+                    SysCmd acSysCmdSetStatus, _
+                           "Importing Google contacts: " & _
+                           ImportedCount
+                    DoEvents
+                End If
+
+            Next Person
+
+        End If
+
+        PageToken = ""
+
+        If JsonResponse.Exists("nextPageToken") Then
+            PageToken = JsonText( _
+                            JsonResponse, _
+                            "nextPageToken")
+        End If
+
+    Loop While Len(PageToken) > 0
+
+    FetchAllGoogleContacts = ImportedCount
+
+CleanExit:
+
+    On Error Resume Next
+
+    SysCmd acSysCmdClearStatus
+
+    Set JsonResponse = Nothing
+    Set Http = Nothing
+
+    Exit Function
+
+ErrorHandler:
+
+    SysCmd acSysCmdClearStatus
+
+    MsgBox _
+        Err.Description, _
+        vbCritical, _
+        "Google Contacts Import"
+Debug.Print Err.Description
+    FetchAllGoogleContacts = -1
+
+    Resume CleanExit
+
+End Function
+
+'=========================================================
+' BUILD GOOGLE API URL
+'=========================================================
+Private Function BuildGoogleContactsUrl( _
+    ByVal PageToken As String _
+) As String
+
+    Dim RequestUrl As String
+
+    RequestUrl = GOOGLE_CONTACTS_URL & _
+        "?pageSize=1000" & _
+        "&sortOrder=LAST_NAME_ASCENDING" & _
+        "&sources=READ_SOURCE_TYPE_CONTACT" & _
+        "&personFields=" & _
+            "names," & _
+            "phoneNumbers," & _
+            "emailAddresses," & _
+            "addresses," & _
+            "locations," & _
+            "biographies," & _
+            "memberships," & _
+            "metadata," & _
+            "userDefined"
+
+    If Len(PageToken) > 0 Then
+        RequestUrl = RequestUrl & _
+                     "&pageToken=" & _
+                     UrlEncodeAscii(PageToken)
+    End If
+
+    BuildGoogleContactsUrl = RequestUrl
+
+End Function
+
+'=========================================================
+' INSERT OR UPDATE ONE CONTACT
+'=========================================================
+Private Sub SaveGoogleContact(ByVal Person As Object)
+
+    Dim RS As DAO.Recordset
+    Dim ResourceName As String
+
+    Dim Prefix As String
+    Dim FirstName As String
+    Dim MiddleName As String
+    Dim LastName As String
+    Dim Suffix As String
+    Dim DisplayName As String
+
+    Dim Mobile As String
+    Dim HomePhone As String
+    Dim OfficePhone As String
+    Dim OtherPhone As String
+
+    Dim Email As String
+
+    Dim StreetAddress As String
+    Dim City As String
+    Dim Area As String
+    Dim Province As String
+    Dim PostalCode As String
+    Dim Country As String
+
+    Dim MapLocation As String
+
+    Dim FatherCNIC As String
+    Dim CurrentClass As String
+    Dim Department As String
+
+    Dim Notes As String
+    Dim GoogleSourceID As String
+    Dim GoogleEtag As String
+    Dim GoogleContactGroup As String
+
+    Dim GoogleUpdatedAt As Variant
+    Dim FindCondition As String
+
+    On Error GoTo ErrorHandler
+
+    ResourceName = JsonText(Person, "resourceName")
+
+    If Len(ResourceName) = 0 Then
+        Exit Sub
+    End If
+
+    ReadGoogleName _
+        Person, _
+        Prefix, _
+        FirstName, _
+        MiddleName, _
+        LastName, _
+        Suffix, _
+        DisplayName
+
+    ReadGooglePhones _
+        Person, _
+        Mobile, _
+        HomePhone, _
+        OfficePhone, _
+        OtherPhone
+
+    Email = GetFirstArrayValue( _
+                Person, _
+                "emailAddresses", _
+                "value")
+
+    ReadGoogleAddress _
+        Person, _
+        StreetAddress, _
+        City, _
+        Area, _
+        Province, _
+        PostalCode, _
+        Country
+
+    MapLocation = GetFirstArrayValue( _
+                        Person, _
+                        "locations", _
+                        "value")
+
+    FatherCNIC = GetGoogleCustomField( _
+                        Person, _
+                        "Father CNIC")
+
+    CurrentClass = GetGoogleCustomField( _
+                        Person, _
+                        "Current Class")
+
+    Department = GetGoogleCustomField( _
+                        Person, _
+                        "Department")
+
+    Notes = GetFirstArrayValue( _
+                Person, _
+                "biographies", _
+                "value")
+
+    GoogleEtag = JsonText(Person, "etag")
+
+    GoogleSourceID = _
+        GetGoogleSourceValue(Person, "id")
+
+    GoogleUpdatedAt = _
+        GetGoogleUpdatedDate(Person)
+
+    GoogleContactGroup = _
+        GetGoogleContactGroup(Person)
+        Dim SQL As String
+
+SQL = "SELECT * FROM " & GOOGLE_CONTACTS_TABLE & _
+      " WHERE GoogleResourceName = '" & _
+      Replace(ResourceName, "'", "''") & "'"
+
+Set RS = CurrentDb.OpenRecordset(SQL, dbOpenDynaset, dbSeeChanges)
+
+If RS.EOF Then
+
+    RS.AddNew
+    RS!GoogleResourceName = ResourceName
+    RS!LocalCreatedAt = Now()
+
+Else
+
+    RS.Edit
+
+End If
+
+'    Set RS = CurrentDb.OpenRecordset( _
+'                 GOOGLE_CONTACTS_TABLE, _
+'                 dbOpenDynaset, _
+'                 dbSeeChanges)
+'
+'    FindCondition = _
+'        "[GoogleResourceName] = '" & _
+'        Replace(ResourceName, "'", "''") & "'"
+'
+'    RS.FindFirst FindCondition
+'
+'    If RS.NoMatch Then
+'
+'        RS.AddNew
+'
+'        RS!GoogleResourceName = ResourceName
+'        RS!LocalCreatedAt = Now()
+'
+'    Else
+'
+'        RS.Edit
+'
+'    End If
+
+    RS!GoogleSourceID = NullIfEmpty(GoogleSourceID)
+    RS!GoogleEtag = NullIfEmpty(GoogleEtag)
+
+    RS!Prefix = NullIfEmpty(Prefix)
+    RS!FirstName = NullIfEmpty(FirstName)
+    RS!MiddleName = NullIfEmpty(MiddleName)
+    RS!LastName = NullIfEmpty(LastName)
+    RS!Suffix = NullIfEmpty(Suffix)
+    RS!DisplayName = NullIfEmpty(DisplayName)
+
+    RS!Mobile = NullIfEmpty(Mobile)
+    RS!HomePhone = NullIfEmpty(HomePhone)
+    RS!OfficePhone = NullIfEmpty(OfficePhone)
+    RS!OtherPhone = NullIfEmpty(OtherPhone)
+
+    RS!Email = NullIfEmpty(Email)
+
+    RS!StreetAddress = NullIfEmpty(StreetAddress)
+    RS!City = NullIfEmpty(City)
+    RS!Area = NullIfEmpty(Area)
+    RS!Province = NullIfEmpty(Province)
+    RS!PostalCode = NullIfEmpty(PostalCode)
+    RS!Country = NullIfEmpty(Country)
+
+    RS!MapLocation = NullIfEmpty(MapLocation)
+
+    RS!FatherCNIC = NullIfEmpty(FatherCNIC)
+    RS!CurrentClass = NullIfEmpty(CurrentClass)
+    RS!Department = NullIfEmpty(Department)
+
+    RS!Notes = NullIfEmpty(Notes)
+
+    RS!GoogleContactGroup = _
+        NullIfEmpty(GoogleContactGroup)
+
+    If IsDate(GoogleUpdatedAt) Then
+        RS!GoogleUpdatedAt = CDate(GoogleUpdatedAt)
+    Else
+        RS!GoogleUpdatedAt = Null
+    End If
+
+    RS!isDeleted = False
+    RS!IsSynced = True
+    RS!SyncStatus = "Synced"
+    RS!SyncError = Null
+
+    RS!LastSyncedAt = Now()
+    RS!LocalUpdatedAt = Now()
+    RS!RecordTimestamp = Now()
+
+    RS.Update
+
+CleanExit:
+
+    On Error Resume Next
+
+    RS.Close
+    Set RS = Nothing
+
+    Exit Sub
+
+ErrorHandler:
+
+    Dim ErrorMessage As String
+
+    ErrorMessage = _
+        "Unable to save Google contact: " & _
+        ResourceName & vbCrLf & _
+        Err.Description
+
+    On Error Resume Next
+
+    If Not RS Is Nothing Then
+
+        If RS.EditMode <> dbEditNone Then
+            RS.CancelUpdate
+        End If
+
+    End If
+
+    On Error GoTo 0
+
+    Err.Raise vbObjectError + 2010, _
+              "SaveGoogleContact", _
+              ErrorMessage
+
+End Sub
+
+'=========================================================
+' READ NAME
+'=========================================================
+Private Sub ReadGoogleName( _
+    ByVal Person As Object, _
+    ByRef Prefix As String, _
+    ByRef FirstName As String, _
+    ByRef MiddleName As String, _
+    ByRef LastName As String, _
+    ByRef Suffix As String, _
+    ByRef DisplayName As String)
+
+    Dim NameItem As Object
+
+    Prefix = ""
+    FirstName = ""
+    MiddleName = ""
+    LastName = ""
+    Suffix = ""
+    DisplayName = ""
+
+    If Not Person.Exists("names") Then Exit Sub
+    If Person("names").count = 0 Then Exit Sub
+
+    Set NameItem = Person("names")(1)
+
+    Prefix = JsonText(NameItem, "honorificPrefix")
+    FirstName = JsonText(NameItem, "givenName")
+    MiddleName = JsonText(NameItem, "middleName")
+    LastName = JsonText(NameItem, "familyName")
+    Suffix = JsonText(NameItem, "honorificSuffix")
+    DisplayName = JsonText(NameItem, "displayName")
+
+End Sub
+
+'=========================================================
+' READ PHONE NUMBERS
+'=========================================================
+Private Sub ReadGooglePhones( _
+    ByVal Person As Object, _
+    ByRef Mobile As String, _
+    ByRef HomePhone As String, _
+    ByRef OfficePhone As String, _
+    ByRef OtherPhone As String)
+
+    Dim PhoneItem As Variant
+    Dim PhoneType As String
+    Dim PhoneValue As String
+
+    Mobile = ""
+    HomePhone = ""
+    OfficePhone = ""
+    OtherPhone = ""
+
+    If Not Person.Exists("phoneNumbers") Then Exit Sub
+
+    For Each PhoneItem In Person("phoneNumbers")
+
+        PhoneType = LCase$( _
+                        Trim$( _
+                            JsonText(PhoneItem, "type")))
+
+        PhoneValue = Trim$( _
+                        JsonText(PhoneItem, "value"))
+
+        If Len(PhoneValue) > 0 Then
+
+            Select Case PhoneType
+
+                Case "mobile", "workmobile"
+
+                    If Len(Mobile) = 0 Then
+                        Mobile = PhoneValue
+                    End If
+
+                Case "home"
+
+                    If Len(HomePhone) = 0 Then
+                        HomePhone = PhoneValue
+                    End If
+
+                Case "work", "main"
+
+                    If Len(OfficePhone) = 0 Then
+                        OfficePhone = PhoneValue
+                    End If
+
+                Case "other"
+
+                    If Len(OtherPhone) = 0 Then
+                        OtherPhone = PhoneValue
+                    End If
+
+                Case Else
+
+                    If Len(OtherPhone) = 0 Then
+                        OtherPhone = PhoneValue
+                    End If
+
+            End Select
+
+        End If
+
+    Next PhoneItem
+
+End Sub
+
+'=========================================================
+' READ ADDRESS
+'=========================================================
+Private Sub ReadGoogleAddress( _
+    ByVal Person As Object, _
+    ByRef StreetAddress As String, _
+    ByRef City As String, _
+    ByRef Area As String, _
+    ByRef Province As String, _
+    ByRef PostalCode As String, _
+    ByRef Country As String)
+
+    Dim AddressItem As Object
+
+    StreetAddress = ""
+    City = ""
+    Area = ""
+    Province = ""
+    PostalCode = ""
+    Country = ""
+
+    If Not Person.Exists("addresses") Then Exit Sub
+    If Person("addresses").count = 0 Then Exit Sub
+
+    Set AddressItem = Person("addresses")(1)
+
+    StreetAddress = _
+        JsonText(AddressItem, "streetAddress")
+
+    City = JsonText(AddressItem, "city")
+
+    Area = _
+        JsonText(AddressItem, "extendedAddress")
+
+    Province = _
+        JsonText(AddressItem, "region")
+
+    PostalCode = _
+        JsonText(AddressItem, "postalCode")
+
+    Country = _
+        JsonText(AddressItem, "country")
+
+End Sub
+
+'=========================================================
+' GET CUSTOM GOOGLE FIELD
+'=========================================================
+Private Function GetGoogleCustomField( _
+    ByVal Person As Object, _
+    ByVal RequiredKey As String _
+) As String
+
+    Dim CustomItem As Variant
+    Dim CustomKey As String
+
+    If Not Person.Exists("userDefined") Then
+        Exit Function
+    End If
+
+    For Each CustomItem In Person("userDefined")
+
+        CustomKey = Trim$( _
+                        JsonText(CustomItem, "key"))
+
+        If StrComp( _
+            CustomKey, _
+            RequiredKey, _
+            vbTextCompare) = 0 Then
+
+            GetGoogleCustomField = _
+                JsonText(CustomItem, "value")
+
+            Exit Function
+
+        End If
+
+    Next CustomItem
+
+End Function
+
+'=========================================================
+' GET FIRST VALUE FROM A GOOGLE ARRAY
+'=========================================================
+Private Function GetFirstArrayValue( _
+    ByVal Person As Object, _
+    ByVal ArrayName As String, _
+    ByVal PropertyName As String _
+) As String
+
+    If Not Person.Exists(ArrayName) Then
+        Exit Function
+    End If
+
+    If Person(ArrayName).count = 0 Then
+        Exit Function
+    End If
+
+    GetFirstArrayValue = _
+        JsonText( _
+            Person(ArrayName)(1), _
+            PropertyName)
+
+End Function
+
+'=========================================================
+' GET GOOGLE CONTACT SOURCE METADATA
+'=========================================================
+Private Function GetGoogleSourceValue( _
+    ByVal Person As Object, _
+    ByVal PropertyName As String _
+) As String
+
+    Dim SourceItem As Variant
+    Dim SourceType As String
+
+    If Not Person.Exists("metadata") Then
+        Exit Function
+    End If
+
+    If Not Person("metadata").Exists("sources") Then
+        Exit Function
+    End If
+
+    For Each SourceItem In _
+        Person("metadata")("sources")
+
+        SourceType = UCase$( _
+                        JsonText(SourceItem, "type"))
+
+        If SourceType = "CONTACT" Then
+
+            GetGoogleSourceValue = _
+                JsonText(SourceItem, PropertyName)
+
+            Exit Function
+
+        End If
+
+    Next SourceItem
+
+End Function
+
+'=========================================================
+' GET GOOGLE UPDATE DATE
+'=========================================================
+Private Function GetGoogleUpdatedDate( _
+    ByVal Person As Object _
+) As Variant
+
+    Dim UpdateText As String
+
+    UpdateText = _
+        GetGoogleSourceValue(Person, "updateTime")
+
+    If Len(UpdateText) = 0 Then
+        GetGoogleUpdatedDate = Null
+        Exit Function
+    End If
+
+    GetGoogleUpdatedDate = _
+        ParseGoogleDateTime(UpdateText)
+
+End Function
+
+'=========================================================
+' GET FIRST GOOGLE CONTACT GROUP RESOURCE NAME
+'=========================================================
+Private Function GetGoogleContactGroup( _
+    ByVal Person As Object _
+) As String
+
+    Dim MembershipItem As Variant
+    Dim GroupItem As Object
+
+    If Not Person.Exists("memberships") Then
+        Exit Function
+    End If
+
+    For Each MembershipItem In Person("memberships")
+
+        If MembershipItem.Exists( _
+            "contactGroupMembership") Then
+
+            Set GroupItem = _
+                MembershipItem( _
+                    "contactGroupMembership")
+
+            GetGoogleContactGroup = _
+                JsonText(GroupItem, _
+                         "contactGroupResourceName")
+
+            Exit Function
+
+        End If
+
+    Next MembershipItem
+
+End Function
+
+'=========================================================
+' SAFE JSON VALUE
+'=========================================================
+Private Function JsonText( _
+    ByVal JsonObject As Object, _
+    ByVal PropertyName As String _
+) As String
+
+    On Error GoTo NoValue
+
+    If JsonObject Is Nothing Then Exit Function
+
+    If Not JsonObject.Exists(PropertyName) Then
+        Exit Function
+    End If
+
+    If IsNull(JsonObject(PropertyName)) Then
+        Exit Function
+    End If
+
+    JsonText = CStr(JsonObject(PropertyName))
+
+    Exit Function
+
+NoValue:
+
+    JsonText = ""
+
+End Function
+
+'=========================================================
+' CONVERT EMPTY STRING TO NULL
+'=========================================================
+Private Function NullIfEmpty( _
+    ByVal Value As String _
+) As Variant
+
+    If Len(Trim$(Value)) = 0 Then
+        NullIfEmpty = Null
+    Else
+        NullIfEmpty = Value
+    End If
+
+End Function
+
+'=========================================================
+' PARSE GOOGLE ISO DATE/TIME
+'=========================================================
+Private Function ParseGoogleDateTime( _
+    ByVal GoogleDate As String _
+) As Variant
+
+    Dim CleanDate As String
+    Dim DotPosition As Long
+
+    On Error GoTo InvalidDate
+
+    CleanDate = Trim$(GoogleDate)
+
+    CleanDate = Replace(CleanDate, "T", " ")
+    CleanDate = Replace(CleanDate, "Z", "")
+
+    DotPosition = InStr(CleanDate, ".")
+
+    If DotPosition > 0 Then
+        CleanDate = Left$(CleanDate, DotPosition - 1)
+    End If
+
+    If IsDate(CleanDate) Then
+        ParseGoogleDateTime = CDate(CleanDate)
+    Else
+        ParseGoogleDateTime = Null
+    End If
+
+    Exit Function
+
+InvalidDate:
+
+    ParseGoogleDateTime = Null
+
+End Function
+
+'=========================================================
+' URL-ENCODE PAGE TOKEN
+'=========================================================
+Private Function UrlEncodeAscii( _
+    ByVal Value As String _
+) As String
+
+    Dim Position As Long
+    Dim Character As String
+    Dim CharacterCode As Long
+    Dim Result As String
+
+    For Position = 1 To Len(Value)
+
+        Character = Mid$(Value, Position, 1)
+        CharacterCode = AscW(Character)
+
+        Select Case CharacterCode
+
+            Case 48 To 57, 65 To 90, 97 To 122
+                Result = Result & Character
+
+            Case 45, 46, 95, 126
+                Result = Result & Character
+
+            Case Else
+                Result = Result & _
+                         "%" & _
+                         Right$("0" & _
+                         Hex$(CharacterCode), 2)
+
+        End Select
+
+    Next Position
+
+    UrlEncodeAscii = Result
+
+End Function

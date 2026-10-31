@@ -1,0 +1,1219 @@
+Option Compare Database
+Option Explicit
+
+'################################################################
+'#                                                              #
+'#      Created with / Erstellt mit:                            #
+'#      IDBE RibbonCreator 2021                                 #
+'#      Version: 1.1001                                         #
+'#                                                              #
+'#      (c) 2007-2022 IDBE Avenius                              #
+'#                                                              #
+'#      http://www.RibbonCreator2021.com                        #
+'#      http://www.ribboncreator2019.com                        #
+'#      http://www.ribboncreator2016.com                        #
+'#      http://www.ribboncreator2010.com                        #
+'#      http://www.ribboncreator.com                            #
+'#      http://www.accessribon.com                              #
+'#      http://www.avenius.com                                  #
+'#                                                              #
+'#      You may send change requests or report errors to:       #
+'#      Aenderungswuensche oder Fehler bitte an:                #
+'#                                                              #
+'#      mailto://info@ribboncreator.com                         #
+'#                                                              #
+'################################################################
+
+
+' Globals:
+
+
+Global Const strAppPicturePath As String = "Pics"             ' The pictures/icons are available in the following directory
+                                                              ' below the database directory
+                                                              ' %Databasepath%\Pics
+                                                              ' Die Bilder / Icons liegen in folgendem Verzeichnis
+                                                              ' unterhalb des Datenbankverzeichnises
+                                                              ' %Datenbankpfad%\Pics
+                                                              
+Global Const bolUseDynamicPicturePath As Boolean = False      ' The images should be loaded from this directory
+                                                              ' and not from the directory in the Ribbon XML.
+                                                              ' Die Bilder sollen aus diesem Verzeichnis geladen werden
+                                                              ' und nicht ueber die Verzeichnisangabe im Ribbon XML.
+
+                                                              ' These values are used in the function "GetImages"
+                                                              ' Diese Werte werden in der Funktion "GetImages" verwendet.
+
+                                                              
+Public gobjRibbon As IRibbonUI
+
+Public bolEnabled As Boolean    ' Used in Callback "getEnabled"
+                                ' Further informations in Callback "getEnabled"
+                                ' Fuer Callback "getEnabled"
+                                ' Genauere Informationen in Callback "getEnabled".
+                               
+Public bolVisible As Boolean    ' Used in Callback "getVisible"
+                                ' More information in Callback "getVisible
+                                ' Fuer Callback "getVisible"
+                                ' Further informations in Callback "getVisible
+
+' For Sample Callback "GetContent"
+' Fuer Beispiel Callback "GetContent"
+Public Type ItemsVal
+    ID As String
+    label As String
+    imageMso As String
+End Type
+
+
+' Callbacks:
+
+Sub OnRibbonLoad(ribbon As IRibbonUI)
+    ' Callbackname in XML File "onLoad"
+
+    Set gobjRibbon = ribbon
+End Sub
+
+Sub LoadImages(control, ByRef Image)
+    ' Callbackname in XML File "loadImage"
+
+    ' Loads an image with transparency to the ribbon
+    ' Modul basGDIPlus is required
+    ' Laed ein Bild mit Transparenz in das Ribbon
+    ' Modul basGDIPlus wird dafuer benoetigt
+    
+    Dim strImage        As String
+    Dim strPicture      As String
+    
+    strImage = CStr(control)
+    strPicture = getPic(strImage)
+    
+    If strImage <> "" Then
+        If bolUsePicturesFromTable = True Then
+            If strPicture <> "" Then
+                Set Image = getIconFromTable(strPicture)
+            Else
+                Set Image = Nothing
+            End If
+        Else
+            Set Image = LoadPictureGDIP(strImage)
+        End If
+    Else
+        Set Image = Nothing
+    End If
+    
+End Sub
+
+Sub GetImages(control As IRibbonControl, ByRef Image)
+    ' Callbackname in XML File "getImages"
+    
+    ' Loads an image with transparency to the ribbon
+    ' Modul basGDIPlus is required
+    ' Laed ein Bild mit Transparenz in das Ribbon
+    ' Modul basGDIPlus wird dafuer benoetigt
+    
+    Dim strPicturePath  As String
+    Dim strPicture      As String
+    
+    strPicture = getTheValue(control.Tag, "CustomPicture")
+    
+    If bolUsePicturesFromTable = True Then
+        Set Image = getIconFromTable(strPicture)
+    Else
+        If bolUseDynamicPicturePath = True Then
+            strPicturePath = getAppPath & strAppPicturePath & "\"
+        Else
+            strPicturePath = getTheValue(control.Tag, "CustomPicturePath")
+        End If
+        Set Image = LoadPictureGDIP(strPicturePath & strPicture)
+    End If
+
+End Sub
+
+Sub GetEnabled(control As IRibbonControl, ByRef enabled)
+    ' Callbackname in XML File "getEnabled"
+    
+    ' To set the property "enabled" to a Ribbon Control
+    ' For further information see: http://www.accessribbon.de/en/index.php?Downloads:12
+    ' Setzen der Enabled Eigenschaft eines Ribbon Controls
+    ' Weitere Informationen: http://www.accessribbon.de/index.php?Downloads:12
+
+    Select Case control.ID
+        
+        Case "btnStudents"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            enabled = True
+        Case "btnFamily"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            enabled = True
+        Case "btnClassInfo"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            enabled = True
+        Case "btnLedger"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            enabled = True
+        Case "btnNewFee"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            enabled = True
+        Case "btnFeeUpdate"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            enabled = True
+        Case "btnFeeReceive"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            enabled = True
+        Case "btnStaffInfo"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStaff
+            enabled = True
+        Case "btnBackup"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpBackUp
+            enabled = True
+        Case "btnDailyFeeReceiveReport"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnDailyFeeReceiveReportReceiptNo"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnAdmissionRegister"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnAdmissionReport"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnFeeBreakup"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "sep_13"
+            ' Separator
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnPrintChallanForms"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnFamilyChallan"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            enabled = True
+        Case "btnUnPaidList"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            enabled = True
+        Case "btnUnpaidListFamilyWise"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            enabled = True
+        Case "btnDepartmentWiseUnpaid"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            enabled = True
+        Case "btnTopDefaulters"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            enabled = True
+        Case "btnExportUnpaidList"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            enabled = True
+        Case "btnFeeIncreaseForm"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            enabled = True
+        Case "btnAccountTypes"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            enabled = True
+        Case "btnAccountTitles"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            enabled = True
+        Case "btnLedgers"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            enabled = True
+        Case "btnCashBook"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpCashBooks
+            enabled = True
+        Case "btnReceiptPayments"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            enabled = True
+        Case "btnProfitLoss"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            enabled = True
+        Case "btnBalanceSheet"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            enabled = True
+
+        Case Else
+            enabled = True
+
+    End Select
+
+End Sub
+
+Sub GetVisible(control As IRibbonControl, ByRef visible)
+    ' Callbackname in XML File "getVisible"
+    
+    ' To set the property "visible" to a Ribbon Control
+    ' For further information see: http://www.accessribbon.de/en/index.php?Downloads:12
+    ' Setzen der Visible Eigenschaft eines Ribbon Controls
+    ' Weitere Informationen: http://www.accessribbon.de/index.php?Downloads:12
+
+    Select Case control.ID
+        
+        Case "btnStudents"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            visible = True
+        Case "btnFamily"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            visible = True
+        Case "btnClassInfo"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            visible = True
+        Case "grpStudentsGeneralInfo"
+            ' Group:    grpStudentsGeneralInfo
+            ' In Tab:   tabStudentsInformation
+            visible = True
+        Case "btnLedger"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            visible = True
+        Case "btnNewFee"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            visible = True
+        Case "btnFeeUpdate"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            visible = True
+        Case "btnFeeReceive"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            visible = True
+        Case "grpFeeLedgers"
+            ' Group:    grpFeeLedgers
+            ' In Tab:   tabStudentsInformation
+            visible = True
+        Case "btnStaffInfo"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStaff
+            visible = True
+        Case "grpStaff"
+            ' Group:    grpStaff
+            ' In Tab:   tabStudentsInformation
+            visible = True
+        Case "btnBackup"
+            ' Button
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpBackUp
+            visible = True
+        Case "grpBackUp"
+            ' Group:    grpBackUp
+            ' In Tab:   tabStudentsInformation
+            visible = True
+        Case "tabStudentsInformation"
+            ' Tab:   tabStudentsInformation
+            visible = True
+        Case "btnDailyFeeReceiveReport"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "btnDailyFeeReceiveReportReceiptNo"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "btnAdmissionRegister"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "btnAdmissionReport"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "btnFeeBreakup"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "sep_13"
+            ' Separator
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "btnPrintChallanForms"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "btnFamilyChallan"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            visible = True
+        Case "grpFeeReports"
+            ' Group:    grpFeeReports
+            ' In Tab:   Tab1
+            visible = True
+        Case "btnUnPaidList"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            visible = True
+        Case "btnUnpaidListFamilyWise"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            visible = True
+        Case "btnDepartmentWiseUnpaid"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            visible = True
+        Case "btnTopDefaulters"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            visible = True
+        Case "btnExportUnpaidList"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            visible = True
+        Case "btnFeeIncreaseForm"
+            ' Button
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            visible = True
+        Case "grpunPaid"
+            ' Group:    grpunPaid
+            ' In Tab:   Tab1
+            visible = True
+        Case "Tab1"
+            ' Tab:   Tab1
+            visible = True
+        Case "btnAccountTypes"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            visible = True
+        Case "btnAccountTitles"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            visible = True
+        Case "btnLedgers"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            visible = True
+        Case "grpAccounts"
+            ' Group:    grpAccounts
+            ' In Tab:   tab_3
+            visible = True
+        Case "btnCashBook"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grpCashBooks
+            visible = True
+        Case "grpCashBooks"
+            ' Group:    grpCashBooks
+            ' In Tab:   tab_3
+            visible = True
+        Case "btnReceiptPayments"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            visible = True
+        Case "btnProfitLoss"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            visible = True
+        Case "btnBalanceSheet"
+            ' Button
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            visible = True
+        Case "grp_8"
+            ' Group:    grp_8
+            ' In Tab:   tab_3
+            visible = True
+        Case "tab_3"
+            ' Tab:   tab_3
+            visible = True
+        Case "tab_4"
+            ' Tab:   tab_4
+            visible = True
+
+        Case Else
+            visible = True
+
+    End Select
+
+End Sub
+
+Sub GetLabel(control As IRibbonControl, ByRef label)
+    ' Callbackname in XML File "getLabel"
+    ' To set the property "label" to a Ribbon Control
+
+    Select Case control.ID
+        
+
+        Case Else
+            label = "*getLabel*"
+
+    End Select
+
+End Sub
+
+Sub GetScreentip(control As IRibbonControl, ByRef screentip)
+    ' Callbackname in XML File "getScreentip"
+    ' To set the property "screentip" to a Ribbon Control
+
+    Select Case control.ID
+        
+
+        Case Else
+            screentip = "*getScreentip*"
+
+    End Select
+
+End Sub
+
+Sub GetSupertip(control As IRibbonControl, ByRef supertip)
+    ' Callbackname in XML File "getSupertip"
+    ' To set the property "supertip" to a Ribbon Control
+
+    Select Case control.ID
+        
+
+        Case Else
+            supertip = "*getSupertip*"
+
+    End Select
+
+End Sub
+
+Sub GetDescription(control As IRibbonControl, ByRef Description)
+    ' Callbackname in XML File "getDescription"
+    ' To set the property "description" to a Ribbon Control
+
+    Select Case control.ID
+        
+
+        Case Else
+            Description = "*getDescription*"
+
+    End Select
+
+End Sub
+
+Sub GetTitle(control As IRibbonControl, ByRef title)
+    ' Callbackname in XML File "getTitle"
+    ' To set the property "title" to a Ribbon MenuSeparator Control
+
+    Select Case control.ID
+        
+
+        Case Else
+            title = "*getTitle*"
+
+    End Select
+
+End Sub
+
+'Button
+
+Sub OnActionButton(control As IRibbonControl)
+    ' Callbackname in XML File "onAction"
+
+    ' Callback for event button click
+    ' Callback fuer Button Click
+    
+    Select Case control.ID
+        
+        Case "btnStudents"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+            DoCmd.OpenForm "frmStudents"
+            
+'            MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+'                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+'                   vbInformation
+        Case "btnFamily"
+            DoCmd.OpenForm "frmFamilyDetails"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+'            MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+'                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+'                   vbInformation
+        Case "btnClassInfo"
+            DoCmd.OpenForm "frmClassInformation"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStudentsGeneralInfo
+'            MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+'                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+'                   vbInformation
+        Case "btnLedger"
+            DoCmd.OpenForm "Ledger"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+            
+            
+'            MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+'                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+'                   vbInformation
+        Case "btnNewFee"
+            DoCmd.OpenForm "frmNewFee"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+'            MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+'                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+'                   vbInformation
+        Case "btnFeeUpdate"
+            DoCmd.OpenForm "Feeupdate"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+'            MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+'                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+'                   vbInformation
+        Case "btnFeeReceive"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpFeeLedgers
+          MsgBox "Function Under progress, Please wait for next update ... ! ", vbInformation
+          '  MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnStaffInfo"
+            DoCmd.OpenForm "frmStaff"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpStaff
+          '  MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+                   vbInformation
+        
+        Case "btnBackup"
+            ' In Tab:   tabStudentsInformation
+            ' In Group: grpBackUp
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnDailyFeeReceiveReport"
+            DoCmd.OpenForm "Classselect"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+           'MsgBox "Button """ & control.id & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.id & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnDailyFeeReceiveReportReceiptNo"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnAdmissionRegister"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnAdmissionReport"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnFeeBreakup"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnPrintChallanForms"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            DoCmd.OpenForm "frmPrintChallanClasewise", acNormal, , , acFormEdit
+        Case "btnFamilyChallan"
+            ' In Tab:   Tab1
+            ' In Group: grpFeeReports
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnUnPaidList"
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnUnpaidListFamilyWise"
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnDepartmentWiseUnpaid"
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnTopDefaulters"
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnExportUnpaidList"
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnFeeIncreaseForm"
+           DoCmd.OpenForm "frmClassFeeIncrease"
+            ' In Tab:   Tab1
+            ' In Group: grpunPaid
+            'MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        
+        Case "btnAccountTypes"
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnAccountTitles"
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnLedgers"
+            ' In Tab:   tab_3
+            ' In Group: grpAccounts
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnCashBook"
+            ' In Tab:   tab_3
+            ' In Group: grpCashBooks
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnReceiptPayments"
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnProfitLoss"
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+        Case "btnBalanceSheet"
+            ' In Tab:   tab_3
+            ' In Group: grp_8
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                   "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                   vbInformation
+      
+        Case Else
+            MsgBox "Button """ & control.ID & """ clicked" & vbCrLf & _
+                           "Es wurde auf Button """ & control.ID & """ im Ribbon geklickt", _
+                           vbInformation
+    End Select
+
+End Sub
+
+'Command Button
+
+Sub OnActionButtonHelp(control As IRibbonControl, ByRef CancelDefault)
+    ' Callbackname in XML File Command "onAction"
+
+    ' Callback for command event button click
+    ' Callback fuer Command Button Click
+
+    MsgBox "Button ""Help"" clicked" & vbCrLf & _
+                           "Es wurde auf Button ""Hilfe"" geklickt", _
+                           vbInformation
+    CancelDefault = True
+
+End Sub
+
+'CheckBox
+
+Sub OnActionCheckBox(control As IRibbonControl, _
+                     pressed As Boolean)
+    ' Callbackname in XML File "OnActionCheckBox"
+    
+    ' Callback for event checkbox click
+    ' Callback fuer Checkbox Click
+
+    Select Case control.ID
+        
+        
+        Case Else
+            MsgBox "The Value of the Checkbox """ & control.ID & """ is: " & pressed & vbCrLf & _
+                   "Der Wert der Checkbox """ & control.ID & """ ist: " & pressed, _
+                   vbInformation
+
+    End Select
+
+End Sub
+
+Sub GetPressedCheckBox(control As IRibbonControl, _
+                       ByRef bolReturn)
+    ' Callbackname in XML File "GetPressedCheckBox"
+    
+    ' Callback for checkbox
+    ' indicates how the control is displayed
+    ' Callback fuer Checkbox wie das Control
+    ' angezeigt werden soll
+
+    Select Case control.ID
+        
+
+        Case Else
+            If getTheValue(control.Tag, "DefaultValue") = "1" Then
+                bolReturn = True
+            Else
+                bolReturn = False
+            End If
+
+    End Select
+
+End Sub
+
+'ToggleButton
+
+Sub OnActionTglButton(control As IRibbonControl, _
+                      pressed As Boolean)
+                              
+    ' Callbackname in XML File "onAction"
+    
+    ' Callback fuer einen Toggle Button Klick
+    ' Callback for a Toggle Buttons click event
+
+    Select Case control.ID
+        
+
+        Case Else
+            MsgBox "The Value of the Toggle Button """ & control.ID & """ is: " & pressed & vbCrLf & _
+                   "Der Wert der Toggle Button """ & control.ID & """ ist: " & pressed, _
+                   vbInformation
+
+    End Select
+
+End Sub
+
+Sub GetPressedTglButton(control As IRibbonControl, _
+                        ByRef pressed)
+    ' Callbackname in XML File "getPressed"
+
+    ' Callback fuer ein Access ToogleButton Control wie dieser Angezeigt werden soll
+    ' Callback for an Access ToogleButton Control. Indicates how the control is displayed
+
+    Select Case control.ID
+        
+
+        Case Else
+            If getTheValue(control.Tag, "DefaultValue") = "1" Then
+                pressed = True
+            Else
+                pressed = False
+            End If
+
+    End Select
+
+End Sub
+
+'EditBox
+
+Sub GetTextEditBox(control As IRibbonControl, _
+                   ByRef strText)
+    ' Callbackname in XML File "GetTextEditBox"
+    
+    ' Callback fuer EditBox welcher Wert in der
+    ' EditBox eingetragen werden soll.
+    ' Callback for an EditBox Control
+    ' Indicates which value is to set to the control
+
+    Select Case control.ID
+        
+
+        Case Else
+            strText = getTheValue(control.Tag, "DefaultValue")
+    
+    End Select
+    
+End Sub
+
+Sub OnChangeEditBox(control As IRibbonControl, _
+                    strText As String)
+    ' Callbackname in XML File "OnChangeEditBox"
+    
+    ' Callback Editbox: Rueckgabewert der Editbox
+    ' Callback Editbox: Return value of the Editbox
+
+    Select Case control.ID
+        
+
+        Case Else
+            MsgBox "The Value of the EditBox """ & control.ID & """ is: " & strText & vbCrLf & _
+                   "Der Wert der EditBox """ & control.ID & """ ist: " & strText, _
+                   vbInformation
+
+    End Select
+
+End Sub
+
+'DropDown
+
+Sub OnActionDropDown(control As IRibbonControl, _
+                     selectedId As String, _
+                     selectedIndex As Integer)
+    ' Callbackname in XML File "OnActionDropDown"
+    
+    ' Callback onAction (DropDown)
+    
+    Select Case control.ID
+        
+
+        Case Else
+            Select Case selectedId
+                Case Else
+                    MsgBox "The selected ItemID of DropDown-Control """ & control.ID & """ is : """ & selectedId & """" & vbCrLf & _
+                           "Die selektierte ItemID des DropDown-Control """ & control.ID & """ ist : """ & selectedId & """", _
+                           vbInformation
+            End Select
+    End Select
+
+End Sub
+
+
+Sub GetSelectedItemIndexDropDown(control As IRibbonControl, _
+                                 ByRef index)
+    ' Callbackname in XML File "GetSelectedItemIndexDropDown"
+    
+    ' Callback getSelectedItemIndex
+    
+    Dim varIndex As Variant
+    varIndex = getTheValue(control.Tag, "DefaultValue")
+    
+    If IsNumeric(varIndex) Then
+        Select Case control.ID
+            
+
+            Case Else
+                index = getTheValue(control.Tag, "DefaultValue")
+
+        End Select
+
+    End If
+
+End Sub
+
+'Gallery
+
+Sub GetSelectedItemIndexGallery(control As IRibbonControl, _
+                                   ByRef index)
+    ' Callbackname in XML File "GetSelectedItemIndexGallery"
+    
+    ' Callback GetSelectedItemIndexGallery
+    
+    Dim varIndex As Variant
+    varIndex = getTheValue(control.Tag, "DefaultValue")
+    
+    If IsNumeric(varIndex) Then
+        Select Case control.ID
+            
+
+            Case Else
+                index = varIndex
+
+        End Select
+
+    End If
+
+End Sub
+
+Sub OnActionGallery(control As IRibbonControl, _
+                     selectedId As String, _
+                     selectedIndex As Integer)
+    ' Callbackname in XML File "OnActionGallery"
+    
+    ' Callback onAction (Gallery)
+    
+    Select Case control.ID
+        
+
+        Case Else
+            Select Case selectedId
+                Case Else
+                    MsgBox "The selected ItemID of Gallery-Control """ & control.ID & """ is : """ & selectedId & """" & vbCrLf & _
+                           "Die selektierte ItemID des Gallery-Control """ & control.ID & """ ist : """ & selectedId & """", _
+                           vbInformation
+            End Select
+    End Select
+
+End Sub
+
+'Combobox
+
+Sub GetTextComboBox(control As IRibbonControl, _
+                      ByRef strText)
+
+    ' Callbackname im XML File "GetTextComboBox"
+    
+    ' Callback getText (Combobox)
+                           
+    Select Case control.ID
+        
+
+        Case Else
+            strText = getTheValue(control.Tag, "DefaultValue")
+    End Select
+
+End Sub
+
+
+Sub OnChangeComboBox(control As IRibbonControl, _
+                               strText As String)
+                           
+    ' Callbackname im XML File "OnChangeCombobox"
+    
+    ' Callback onChange (Combobox)
+   
+    Select Case control.ID
+        
+
+        Case Else
+            MsgBox "The selected Item of Combobox-Control """ & control.ID & """ is : """ & strText & """" & vbCrLf & _
+                   "Das selektierte Item des Combobox-Control """ & control.ID & """ ist : """ & strText & """", _
+                   vbInformation
+    End Select
+
+End Sub
+
+' DynamicMenu
+
+Sub GetContent(control As IRibbonControl, _
+               ByRef XMLString)
+
+    ' Sample for a Ribbon XML "getContent" Callback
+    ' See also http://www.accessribbon.de/en/index.php?Access_-_Ribbons:Callbacks:dynamicMenu_-_getContent
+    '     and: http://www.accessribbon.de/en/index.php?Access_-_Ribbons:Ribbon_XML___Controls:Dynamic_Menu
+
+    ' Beispiel fuer einen Ribbon XML - "getContent" Callback
+    ' Siehe auch: http://www.accessribbon.de/index.php?Access_-_Ribbons:Callbacks:dynamicMenu_-_getContent
+    '       und : http://www.accessribbon.de/?Access_-_Ribbons:Ribbon_XML___Controls:Dynamic_Menu
+
+    Select Case control.ID
+        
+
+        Case Else
+            XMLString = getXMLForDynamicMenu()
+    End Select
+ 
+End Sub
+
+
+' Helper Function
+' Hilfsfunktionen
+
+Public Function getXMLForDynamicMenu() As String
+    
+    ' Creates a XML String for DynamicMenu CallBack - getContent
+    
+    ' Erstellt den Inhalt fuer das DynamicMenu im Callback getContent
+    
+    Dim lngDummy    As Long
+    Dim strDummy    As String
+    Dim strContent  As String
+    
+    Dim Items(4) As ItemsVal
+    Items(0).ID = "btnDy1"
+    Items(0).label = "Item 1"
+    Items(0).imageMso = "_1"
+    Items(1).ID = "btnDy2"
+    Items(1).label = "Item 2"
+    Items(1).imageMso = "_2"
+    Items(2).ID = "btnDy3"
+    Items(2).label = "Item 3"
+    Items(2).imageMso = "_3"
+    Items(3).ID = "btnDy4"
+    Items(3).label = "Item 4"
+    Items(3).imageMso = "_4"
+    Items(4).ID = "btnDy5"
+    Items(4).label = "Item 5"
+    Items(4).imageMso = "_5"
+    
+    strDummy = "<menu xmlns=""http://schemas.microsoft.com/office/2009/07/customui"">" & vbCrLf
+    
+        For lngDummy = LBound(Items) To UBound(Items)
+            strContent = strContent & _
+                "<button id=""" & Items(lngDummy).ID & """" & _
+                " label=""" & Items(lngDummy).label & """" & _
+                " imageMso=""" & Items(lngDummy).imageMso & """" & _
+                " onAction=""OnActionButton""/>" & vbCrLf
+        Next
+ 
+
+    strDummy = strDummy & strContent & "</menu>"
+    getXMLForDynamicMenu = strDummy
+
+End Function
+
+Public Function getTheValue(strTag As String, strvalue As String) As String
+    ' *************************************************************
+    ' Created from     : Avenius
+    ' Parameter        : Input String, SuchValue String
+    ' Date created     : 05.01.2008
+    '
+    ' Sample:
+    ' getTheValue("DefaultValue:=Test;Enabled:=0;Visible:=1", "DefaultValue")
+    ' Return           : "Test"
+    ' *************************************************************
+      
+   On Error Resume Next
+      
+   Dim workTb()     As String
+   Dim Ele()        As String
+   Dim myVariabs()  As String
+   Dim i            As Integer
+
+      workTb = Split(strTag, ";")
+      
+      ReDim myVariabs(LBound(workTb) To UBound(workTb), 0 To 1)
+      For i = LBound(workTb) To UBound(workTb)
+         Ele = Split(workTb(i), ":=")
+         myVariabs(i, 0) = Ele(0)
+         If UBound(Ele) = 1 Then
+            myVariabs(i, 1) = Ele(1)
+         End If
+      Next
+      
+      For i = LBound(myVariabs) To UBound(myVariabs)
+         If strvalue = myVariabs(i, 0) Then
+            getTheValue = myVariabs(i, 1)
+         End If
+      Next
+      
+End Function
+
+Public Function getAppPath() As String
+    Dim strDummy As String
+    strDummy = CurrentProject.path
+    If Right(strDummy, 1) <> "\" Then strDummy = strDummy & "\"
+    getAppPath = strDummy
+End Function
+
+Public Function getIconFromTable(strFilename As String) As Picture
+'*****************************************************************************
+'Funktion 'getIconFromTable' holt ein Bild aus der Binaer-Tabelle und gibt
+' ein Picture Objekt zurueck
+' strFilename ist Bildobjekt welches in der Datei 'tblBinary" vorhanden ist.
+'*****************************************************************************
+
+Dim lSize As Long
+Dim arrBin() As Byte
+Dim RS As DAO.Recordset
+ 
+    On Error GoTo Errr
+ 
+    Set RS = DBEngine(0)(0).OpenRecordset("tblBinary", dbOpenDynaset)
+    RS.FindFirst "[FileName]='" & strFilename & "'"
+    If RS.NoMatch Then
+        Set getIconFromTable = Nothing
+    Else
+        lSize = RS.Fields("binary").FieldSize
+        ReDim arrBin(lSize)
+        arrBin = RS.Fields("binary").GetChunk(0, lSize)
+        Set getIconFromTable = ArrayToPicture(arrBin)
+    End If
+    RS.Close
+ 
+fExit:
+    Reset
+    Erase arrBin
+    Set RS = Nothing
+    Exit Function
+Errr:
+    Resume fExit
+End Function
+
+Public Function getPic(strFullPath As String) As String
+    Dim strResult As String
+    
+    If InStrRev(strFullPath, "\") > 0 Then
+        strResult = Mid(strFullPath, InStrRev(strFullPath, "\") + 1)
+    Else
+        strResult = ""
+    End If
+   
+    getPic = strResult
+End Function

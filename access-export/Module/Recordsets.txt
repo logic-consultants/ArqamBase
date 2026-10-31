@@ -1,0 +1,119 @@
+Option Compare Database
+Option Explicit
+
+Public Function IncreaseFee()
+    Dim db As Database
+    Dim RS As DAO.Recordset
+    Set db = CurrentDb
+    Dim CurrentFee As Integer
+
+
+Set RS = db.OpenRecordset("select * from qryFeeDefDetails order by FK_CC", dbOpenDynaset, dbSeeChanges)
+
+If Not RS.BOF And Not RS.EOF Then
+        RS.MoveFirst
+        While (Not RS.EOF)
+        CurrentFee = DLookup("TuitionFee", "Feedefinition", "Fk_cc=" & RS!FK_CC)
+        RS.Edit
+            Select Case CurrentFee
+                Case 1 To 1999
+                    RS!TuitionFee = CurrentFee + 800
+                    Debug.Print RS!FK_CC & "," & RS!Students.Name; "," & CurrentFee & "," & CurrentFee + 800
+                    
+                Case 2000
+                    RS!TuitionFee = CurrentFee + 700
+                    Debug.Print RS!FK_CC & "," & RS!Students.Name; "," & CurrentFee & "," & CurrentFee + 700
+                Case 2001 To 2200
+                    RS!TuitionFee = CurrentFee + 600
+                    Debug.Print RS!FK_CC & "," & RS!Students.Name; "," & CurrentFee & "," & CurrentFee + 600
+                Case 2201 To 2500
+                    RS!TuitionFee = CurrentFee + 500
+                    Debug.Print RS!FK_CC & "," & RS!Students.Name; "," & CurrentFee & "," & CurrentFee + 500
+                Case 2501 To 2999
+                    RS!TuitionFee = CurrentFee + 300
+                    Debug.Print RS!FK_CC & "," & RS!Students.Name; "," & CurrentFee & "," & CurrentFee + 300
+                Case 3000 To 4000
+                    Debug.Print RS!FK_CC & "," & RS!Students.Name; "," & CurrentFee & "," & CurrentFee + 200
+                    RS!TuitionFee = CurrentFee + 200
+            End Select
+                
+                    
+                                
+        
+         '   Debug.Print rs!FK_CC & "   -   " & CurrentFee 'define the field you want to return data
+           RS.Update
+            RS.MoveNext
+        Wend
+    End If
+    RS.Close
+    Set RS = Nothing
+
+End Function
+
+
+Public Function IncreaseFeeUpdate()
+    Dim db As Database
+    Dim RS As DAO.Recordset
+    Set db = CurrentDb
+    Dim CurrentFee As Integer
+    Dim IncreasedAmount As Integer
+    Dim FeeAfterIncrease As Integer
+    Dim strSQL As String
+
+    Set RS = db.OpenRecordset("select * from qryFeeDefDetails order by FK_CC", dbOpenDynaset, dbSeeChanges)
+
+    If Not RS.BOF And Not RS.EOF Then
+        RS.MoveFirst
+        While (Not RS.EOF)
+            CurrentFee = DLookup("TuitionFee", "Feedefinition", "Fk_cc=" & RS!FK_CC)
+            RS.Edit
+            Select Case CurrentFee
+                Case 1 To 1999
+                    IncreasedAmount = 800
+                    FeeAfterIncrease = CurrentFee + IncreasedAmount
+                    Debug.Print RS!FK_CC & "," & CurrentFee & "," & FeeAfterIncrease
+                    RS!TuitionFee = FeeAfterIncrease
+                    
+                Case 2000
+                    IncreasedAmount = 700
+                    FeeAfterIncrease = CurrentFee + IncreasedAmount
+                    Debug.Print RS!FK_CC & "," & CurrentFee & "," & FeeAfterIncrease
+                    RS!TuitionFee = FeeAfterIncrease
+                    
+                Case 2001 To 2200
+                    IncreasedAmount = 500
+                    FeeAfterIncrease = CurrentFee + IncreasedAmount
+                    Debug.Print RS!FK_CC & "," & CurrentFee & "," & FeeAfterIncrease
+                    RS!TuitionFee = FeeAfterIncrease
+                    
+                Case 2201 To 2500
+                    IncreasedAmount = 500
+                    FeeAfterIncrease = CurrentFee + IncreasedAmount
+                    Debug.Print RS!FK_CC & "," & CurrentFee & "," & FeeAfterIncrease
+                    RS!TuitionFee = FeeAfterIncrease
+                    
+                Case 2501 To 2999
+                    IncreasedAmount = 300
+                    FeeAfterIncrease = CurrentFee + IncreasedAmount
+                    Debug.Print RS!FK_CC & "," & CurrentFee & "," & FeeAfterIncrease
+                    RS!TuitionFee = FeeAfterIncrease
+                    
+                Case 3000 To 5000
+                    IncreasedAmount = 200
+                    FeeAfterIncrease = CurrentFee + IncreasedAmount
+                    Debug.Print RS!FK_CC & "," & CurrentFee & "," & FeeAfterIncrease
+                    RS!TuitionFee = FeeAfterIncrease
+            End Select
+
+            ' Insert the data into tblFeeUpdateList
+            strSQL = "INSERT INTO tblFeeUpdateList (CC, CurrentFee, IncreasedAmount, NewFee, UpdatedOn, ReasonUpdate) " & _
+                     "VALUES (" & RS!FK_CC & ", " & CurrentFee & ", " & IncreasedAmount & ", " & FeeAfterIncrease & ", #" & Now() & "#, 'Annual Increase')"
+            db.Execute strSQL
+
+            RS.Update
+            RS.MoveNext
+        Wend
+    End If
+    RS.Close
+    Set RS = Nothing
+End Function

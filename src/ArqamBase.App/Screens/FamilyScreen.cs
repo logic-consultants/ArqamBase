@@ -87,7 +87,7 @@ public sealed class FamilyScreen : ScreenBase
         _commands =
         [
             new("Family",
-                new("Fee ledger", Icons.Ledger, () => NotYet("The fee ledger comes with the Fees screens.")),
+                new("Fee ledger", Icons.Ledger, OpenLedger),
                 new("Send WhatsApp", Icons.Chat, () => NotYet("Sending WhatsApp messages comes with the Messages screens.")),
                 new("Flag family", Icons.Flag, ToggleFlag)),
             new("Print",
@@ -281,6 +281,14 @@ public sealed class FamilyScreen : ScreenBase
 
     public sealed record ChildRow(int? CC, string Name, string Class, string Section, int? MonthlyFee, int? Balance, string Status, bool OnRoll,
         bool IsTotal = false);
+
+    /// <summary>The fee ledger of the selected child, or of the first child in school.</summary>
+    private void OpenLedger()
+    {
+        var cc = _children.CurrentRow?.DataBoundItem is ChildRow { CC: int c } ? c : _current?.Students.Where(s => s.OnRoll).OrderBy(s => s.Name).Select(s => (int?)s.Id).FirstOrDefault();
+        if (cc is int id) Ctx.OpenScreenAt("ledger", id);
+        else NotYet("Select a child first.");
+    }
 
     private void OpenChild()
     {

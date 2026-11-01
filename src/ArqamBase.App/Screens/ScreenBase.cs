@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ArqamBase.App.Core;
 using Krypton.Toolkit;
+using Microsoft.EntityFrameworkCore;
 
 namespace ArqamBase.App.Screens;
 
@@ -82,6 +83,17 @@ public class ScreenBase : KryptonPanel
 
     /// <summary>Pushes values still being typed into their records, so HasChanges sees them.</summary>
     protected virtual void CommitPendingEdits() { }
+
+    /// <summary>The school's address, phones and pictures from School information, for printouts (the built-in logo if it cannot be read).</summary>
+    protected Printing.SchoolPrint SchoolDetails()
+    {
+        try
+        {
+            using var db = Ctx.Config.CreateContext(Ctx.Session);
+            return Printing.SchoolPrint.From(db.Campuses.AsNoTracking().OrderBy(c => c.Id).FirstOrDefault());
+        }
+        catch (Microsoft.Data.SqlClient.SqlException) { return Printing.SchoolPrint.From(null); }
+    }
 
     protected static KryptonLabel Heading(string text) => new()
     {

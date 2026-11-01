@@ -105,7 +105,7 @@ public sealed class StudentsScreen : ScreenBase
         _commands =
         [
             new("Student",
-                new("Fee ledger", Icons.Ledger, () => NotYet("The fee ledger comes with the Fees screens (phase 3).")),
+                new("Fee ledger", Icons.Ledger, () => { if (_current is { Id: not 0 } s) Ctx.OpenScreenAt("ledger", s.Id); }),
                 new("Family", Icons.People, () => { if (_current?.FamilyId is int id) Ctx.OpenScreenAt("family", id); }),
                 new("Send WhatsApp", Icons.Chat, () => NotYet("Sending WhatsApp messages comes with the Messages screens (phase 5)."))),
             new("Print",
@@ -668,17 +668,6 @@ public sealed class StudentsScreen : ScreenBase
             s.Id, s.DsNo, s.Name ?? "", s.Sex == "FEMALE", s.FatherName ?? "", s.BirthDate, s.AdmissionDate,
             TextOf(_classes, s.ClassId), TextOf(_sections, s.SectionId), school, s.LeavingDate, s.LeavingReason, s.Remarks,
             TextOf(_bloodGroups, s.BloodGroupId), s.FamilyId, s.Family?.Mobile ?? s.WhatsApp, photo);
-    }
-
-    /// <summary>The school's address, phones and pictures from School information (the built-in logo if it cannot be read).</summary>
-    private Printing.SchoolPrint SchoolDetails()
-    {
-        try
-        {
-            using var db = Ctx.Config.CreateContext(Ctx.Session);
-            return Printing.SchoolPrint.From(db.Campuses.AsNoTracking().OrderBy(c => c.Id).FirstOrDefault());
-        }
-        catch (Microsoft.Data.SqlClient.SqlException) { return Printing.SchoolPrint.From(null); }
     }
 
     /// <summary>The selected student, or a message if there is none (or it is not saved yet).</summary>

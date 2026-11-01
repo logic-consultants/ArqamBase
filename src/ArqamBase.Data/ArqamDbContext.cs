@@ -19,6 +19,8 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<BloodGroup> BloodGroups => Set<BloodGroup>();
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
     public DbSet<Campus> Campuses => Set<Campus>();
+    public DbSet<FeeChallan> FeeChallans => Set<FeeChallan>();
+    public DbSet<CollectionType> CollectionTypes => Set<CollectionType>();
 
     /// <summary>
     /// Fee owed per student (CC → amount): the total of the student's unpaid challans in Feerecipt, as the Access ledger's "Unpaid TOTAL".
@@ -45,6 +47,13 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             WHERE N = 1
             """)
             .ToDictionary(b => b.StudentId, b => b.Balance);
+
+    /// <summary>One student's monthly fee from the newest fee definition (null if none).</summary>
+    public int? MonthlyFeeOf(int cc) =>
+        Database.SqlQuery<int?>($"""
+            SELECT TOP 1 TuitionFee AS Value FROM dbo.FeeDefinitation
+            WHERE FK_CC = {cc} AND ISNULL(isDeleted, 0) = 0 ORDER BY FeeDefId DESC
+            """).AsEnumerable().FirstOrDefault();
 
     /// <summary>Who last changed a row and when, from the audit log (null if never changed or the audit log is not installed).</summary>
     public LastChange? LastChangeOf(string table, int key) =>
@@ -278,6 +287,39 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Phone3).HasColumnName("Ph3").HasMaxLength(100);
             e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
             e.Ignore(x => x.Phones);
+            MapSoftDelete(e);
+        });
+
+        b.Entity<FeeChallan>(e =>
+        {
+            e.ToTable("Feerecipt", t => t.HasTrigger("trg_Audit_Feerecipt"));
+            e.Property(x => x.Id).HasColumnName("Sr#");
+            e.Property(x => x.StudentId).HasColumnName("CC");
+            e.Property(x => x.Period).HasMaxLength(50);
+            e.Property(x => x.IssueDate).HasColumnType("date");
+            e.Property(x => x.DueDate).HasColumnType("date");
+            e.Property(x => x.RegistrationFee).HasColumnName("Mis_fee");
+            e.Property(x => x.ReceivedOn).HasColumnName("ReDate").HasColumnType("date");
+            e.Property(x => x.ReceiptNo).HasColumnName("RecipNo");
+            e.Property(x => x.CollectionTypeId).HasColumnName("CollectionType");
+            e.Property(x => x.DateEdited).HasColumnType("datetime");
+            e.Property(x => x.EditedBy).HasColumnName("Description").HasMaxLength(255);
+            e.Property(x => x.DrCr).HasColumnName("DRCR").HasMaxLength(2);
+            e.Property(x => x.Remarks).HasMaxLength(255);
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            e.Ignore(x => x.Total);
+            e.Ignore(x => x.PeriodText);
+            MapSoftDelete(e);
+        });
+
+        b.Entity<CollectionType>(e =>
+        {
+            e.ToTable("tblCollectionTypes");
+            e.Property(x => x.Id).HasColumnName("CollectionTypeID");
+            e.Property(x => x.Name).HasColumnName("CollectionType");
+            e.Property(x => x.Code).HasColumnName("Rem");
+            e.Property(x => x.Active).HasColumnName("Status");
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
             MapSoftDelete(e);
         });
     }

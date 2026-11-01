@@ -19,15 +19,18 @@ public static class DateWords
 
     public static string Of(DateTime date) => $"{Days[date.Day - 1]} {date:MMMM}, {Number(date.Year)}";
 
-    /// <summary>Whole numbers below 10,000 in words.</summary>
+    /// <summary>Whole numbers in words, in crores, lakhs and thousands (e.g. "One Lakh Twenty Five Thousand").</summary>
     public static string Number(int n)
     {
         if (n == 0) return "Zero";
+        if (n < 0) return "Minus " + Number(-n);
         var parts = new List<string>();
-        if (n >= 1000) { parts.Add($"{Ones[n / 1000]} Thousand"); n %= 1000; }
-        if (n >= 100) { parts.Add($"{Ones[n / 100]} Hundred"); n %= 100; }
-        if (n >= 20) { parts.Add(Tens[n / 10] + (n % 10 > 0 ? " " + Ones[n % 10] : "")); n = 0; }
-        if (n > 0) parts.Add(Ones[n]);
+        foreach (var (size, name) in new[] { (10_000_000, "Crore"), (100_000, "Lakh"), (1000, "Thousand"), (100, "Hundred") })
+            if (n >= size) { parts.Add($"{BelowHundred(n / size)} {name}"); n %= size; }
+        if (n > 0) parts.Add(BelowHundred(n));
         return string.Join(" ", parts);
     }
+
+    private static string BelowHundred(int n) =>
+        n >= 100 ? Number(n) : n >= 20 ? Tens[n / 10] + (n % 10 > 0 ? " " + Ones[n % 10] : "") : Ones[n];
 }

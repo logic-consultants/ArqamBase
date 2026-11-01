@@ -12,7 +12,7 @@ public sealed class NavPane : KryptonPanel
     private readonly KryptonLabel _title = new() { Text = "All screens", Dock = DockStyle.Fill, LabelStyle = LabelStyle.BoldControl };
     private readonly KryptonButton _toggle = new() { Dock = DockStyle.Right, Width = 28, ButtonStyle = ButtonStyle.ButtonSpec, Text = "«" };
     private readonly KryptonTextBox _search = new() { Dock = DockStyle.Top, CueHint = { CueHintText = "Search screens" } };
-    private readonly KryptonTreeView _tree = new() { Dock = DockStyle.Fill, ShowLines = false, ShowRootLines = false, FullRowSelect = true, HotTracking = true, ItemHeight = 26 };
+    private readonly KryptonTreeView _tree = new() { Dock = DockStyle.Fill, ShowLines = false, ShowRootLines = false, FullRowSelect = true, HotTracking = true, ItemHeight = Theme.RowHeight };
     private readonly ImageList _images = new() { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
     private int _expandedWidth;
     private string? _activeKey;
@@ -115,5 +115,11 @@ public sealed class NavPane : KryptonPanel
         _tree.ExpandAll();
         _tree.EndUpdate();
         SetActive(_activeKey);
+    }
+
+    protected override void OnFontChanged(EventArgs e)
+    {
+        base.OnFontChanged(e);
+        if (_tree.ItemHeight != Theme.RowHeight) _tree.ItemHeight = Theme.RowHeight;
     }
 }

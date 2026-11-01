@@ -8,7 +8,7 @@ namespace ArqamBase.App.Shell;
 /// <summary>Picks a file and its type to attach to a student.</summary>
 public sealed class AddDocumentForm : KryptonForm
 {
-    private readonly KryptonComboBox _type = new() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox _type = new() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly KryptonTextBox _file = new() { Width = 300, ReadOnly = true };
     private readonly KryptonTextBox _notes = new() { Width = 300 };
     private readonly KryptonLabel _error = new() { Text = "", AutoSize = true, MaximumSize = new Size(420, 0), StateCommon = { ShortText = { Color1 = Color.Firebrick } } };

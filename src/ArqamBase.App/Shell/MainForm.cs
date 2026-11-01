@@ -16,7 +16,10 @@ public sealed class MainForm : KryptonForm
     private readonly StatusStrip _status = new();
     private readonly ToolStripStatusLabel _recordLabel = new() { Spring = true, TextAlign = ContentAlignment.MiddleRight };
     private readonly List<(KryptonRibbonGroupButton Button, char Glyph)> _iconButtons = [];
-    private readonly List<KryptonRibbonGroupButton> _recordButtons = [];
+    private readonly List<KryptonRibbonGroupButton> _recordButtons = [], _newButtons = [];
+    private readonly Dictionary<string, KryptonRibbonTab> _groupTabs = [];
+    private readonly List<(KryptonRibbonTab Tab, KryptonRibbonGroup Group)> _screenGroups = [];
+    private readonly HashSet<KryptonRibbonGroupButton> _screenButtons = [];
     private readonly ScreenContext _ctx;
     private readonly UserSettings _settings;
 
@@ -35,7 +38,8 @@ public sealed class MainForm : KryptonForm
         MinimumSize = new Size(900, 600);
         WindowState = FormWindowState.Maximized;
         _manager.GlobalApplyToolstrips = true;
-        Theme.Apply(_manager, settings.Theme);
+        Theme.Apply(_manager, settings);
+        Font = Theme.BaseFont;
 
         _nav = new NavPane(settings.NavigationPaneWidth);
         _nav.ScreenSelected += OpenScreen;
@@ -92,10 +96,12 @@ public sealed class MainForm : KryptonForm
         }
 
         var info = ScreenCatalog.Get(key);
+        var t = Timing.Step($"OpenScreen {key}");
         ScreenBase screen;
         try
         {
             screen = ScreenCatalog.CreateScreen(info, _ctx);
+            t.Mark("create");
         }
         catch (Exception ex)
         {
@@ -108,7 +114,10 @@ public sealed class MainForm : KryptonForm
         var page = new KryptonPage { Text = info.Title, TextTitle = info.Title, UniqueName = key, ImageSmall = Icons.Small(info.Glyph) };
         page.Controls.Add(screen);
         _tabs.Pages.Add(page);
+        t.Mark("pages.add");
         _tabs.SelectedPage = page;
+        t.Mark("add tab (loads data)");
+        BeginInvoke(() => { t.Mark("first paint"); t.Dispose(); });
     }
 
     private void OnTabClosing(object? sender, CloseActionEventArgs e)
@@ -124,6 +133,7 @@ public sealed class MainForm : KryptonForm
         var screen = ActiveScreen;
         foreach (var b in _recordButtons)
             b.Enabled = screen?.SupportsRecords == true;
+        ShowScreenCommands(screen);
         UpdateStatus();
     }
 
@@ -151,7 +161,8 @@ public sealed class MainForm : KryptonForm
 
     private void ApplyTheme()
     {
-        Theme.Apply(_manager, _settings.Theme);
+        Theme.Apply(_manager, _settings);
+        Font = Theme.BaseFont; // standard controls (drop-downs, lists) take the font from the window
         foreach (var (button, glyph) in _iconButtons)
         {
             button.ImageLarge = Icons.Large(glyph);
@@ -161,6 +172,16 @@ public sealed class MainForm : KryptonForm
             if (ScreenCatalog.All.FirstOrDefault(s => s.Key == page.UniqueName) is { } info)
                 page.ImageSmall = Icons.Small(info.Glyph);
         Refresh();
+    }
+
+    /// <summary>Makes all text one point larger or smaller, within the allowed range.</summary>
+    private void ChangeFontSize(int delta)
+    {
+        var size = Theme.ClampFontSize(_settings.FontSize + delta);
+        if (size == _settings.FontSize) return;
+        _settings.FontSize = size;
+        try { _settings.Save(); } catch (IOException) { }
+        ApplyTheme();
     }
 
     private void OnWindowsThemeChanged(object? sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
@@ -186,14 +207,17 @@ public sealed class MainForm : KryptonForm
             SortFilterGroup(),
             Group("Find", Btn("Find", Icons.Search, () => ActiveScreen?.FocusSearch()), Btn("Find screen", Icons.Menu, _nav.FocusSearch)),
             Group("Go to", Btn("Dashboard", Icons.Home, () => OpenScreen("dashboard"))),
-            Group("View", Btn("Navigation pane", Icons.Menu, () => _nav.SetCollapsed(!_nav.Collapsed)), Btn("Theme", Icons.ThemeIcon, () => OpenScreen("settings")))));
+            Group("View", Btn("Navigation pane", Icons.Menu, () => _nav.SetCollapsed(!_nav.Collapsed)), Btn("Theme", Icons.ThemeIcon, () => OpenScreen("settings")),
+                Btn("Larger text", Icons.FontBigger, () => ChangeFontSize(+1)), Btn("Smaller text", Icons.FontSmaller, () => ChangeFontSize(-1)))));
 
         foreach (var group in ScreenCatalog.All.Where(s => s.Group != "Home").GroupBy(s => s.Group))
         {
             var tabName = group.Key == "Staff & salaries" ? "Staff" : group.Key;
             var screens = Group(group.Key == "Staff & salaries" ? "Staff" : "Screens",
                 group.Select(s => Btn(s.Title, s.Glyph, () => OpenScreen(s.Key))).ToArray());
-            _ribbon.RibbonTabs.Add(Tab(tabName, screens, RecordsGroup(), SortFilterGroup()));
+            var tab = Tab(tabName, screens, RecordsGroup(), SortFilterGroup());
+            _groupTabs[group.Key] = tab;
+            _ribbon.RibbonTabs.Add(tab);
         }
         _ribbon.SelectedTab = _ribbon.RibbonTabs[0];
     }
@@ -208,7 +232,43 @@ public sealed class MainForm : KryptonForm
             Btn("Undo changes", Icons.Undo, () => ActiveScreen?.Reload()),
         };
         _recordButtons.AddRange(buttons);
+        _newButtons.Add(buttons[0]);
         return Group("Records", buttons);
+    }
+
+    /// <summary>Shows the active screen's own ribbon groups (after Records, on Home and on the screen's tab) and its New button text.</summary>
+    private void ShowScreenCommands(ScreenBase? screen)
+    {
+        foreach (var (tab, group) in _screenGroups)
+            tab.Groups.Remove(group);
+        _screenGroups.Clear();
+        _iconButtons.RemoveAll(b => _screenButtons.Contains(b.Button));
+        _screenButtons.Clear();
+
+        var words = (screen?.NewText ?? "New").Split(' ', 2);
+        foreach (var b in _newButtons)
+        {
+            b.TextLine1 = words[0];
+            b.TextLine2 = words.Length > 1 ? words[1] : "";
+        }
+
+        if (screen is null || screen.Commands.Count == 0) return;
+        var tabs = new List<KryptonRibbonTab> { _ribbon.RibbonTabs[0] };
+        var key = _tabs.SelectedPage?.UniqueName;
+        if (ScreenCatalog.All.FirstOrDefault(s => s.Key == key) is { } info && _groupTabs.TryGetValue(info.Group, out var own))
+            tabs.Add(own);
+        foreach (var tab in tabs)
+        {
+            var at = tab.Groups.Cast<KryptonRibbonGroup>().ToList().FindIndex(g => g.TextLine1 == "Records") + 1;
+            foreach (var commands in screen.Commands)
+            {
+                var buttons = commands.Commands.Select(c => Btn(c.Text, c.Glyph, c.Run)).ToArray();
+                _screenButtons.UnionWith(buttons);
+                var group = Group(commands.Title, buttons);
+                tab.Groups.Insert(at++, group);
+                _screenGroups.Add((tab, group));
+            }
+        }
     }
 
     private KryptonRibbonGroup SortFilterGroup()

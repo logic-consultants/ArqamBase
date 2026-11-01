@@ -48,6 +48,8 @@ public sealed class UserSettings
     public bool NavigationPaneOpen { get; set; } = true;
     public int NavigationPaneWidth { get; set; } = 240;
     public string? LastUserName { get; set; }
+    public string FontName { get; set; } = Core.Theme.DefaultFontName;
+    public int FontSize { get; set; } = Core.Theme.DefaultFontSize;
 
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArqamBase", "settings.json");

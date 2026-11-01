@@ -20,9 +20,9 @@ public sealed class StudentsScreen : ScreenBase
 {
     private readonly bool _canEdit;
     private readonly KryptonTextBox _search = new() { Width = 280, CueHint = { CueHintText = "Search name, CC, father, phone or Form-B" } };
-    private readonly KryptonComboBox _classFilter = new() { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly KryptonComboBox _sectionFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly KryptonComboBox _statusFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox _classFilter = new() { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox _sectionFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox _statusFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly AccessGrid _grid = new() { ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false };
     private readonly KryptonLabel _header = new() { Dock = DockStyle.Top, LabelStyle = LabelStyle.TitlePanel, AutoSize = true };
     private readonly KryptonNavigator _tabs = new() { Dock = DockStyle.Fill, NavigatorMode = NavigatorMode.BarTabGroup };
@@ -34,7 +34,8 @@ public sealed class StudentsScreen : ScreenBase
     private readonly AccessGrid _convoGrid = new();
     private readonly KryptonButton _changeFamily = new() { Text = "Change family…", AutoSize = true };
     private readonly AccessGrid _docGrid = new() { ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false };
-    private readonly KryptonLabel _docInfo = new() { Text = "", AutoSize = true, Padding = new Padding(8, 6, 0, 0) };
+    private readonly KryptonLabel _docInfo = new() { Text = "", AutoSize = true };
+    private readonly FlowLayoutPanel _docBar = new() { Dock = DockStyle.Top, BackColor = Color.Transparent, WrapContents = false, Padding = new Padding(0, 4, 0, 0) };
     private readonly List<Control> _docEditButtons = [];
     private readonly StudentDocumentStore _store;
     private List<StudentDocument> _documents = [];
@@ -42,7 +43,7 @@ public sealed class StudentsScreen : ScreenBase
     private ArqamDbContext? _db;
     private FilterBindingList<Student>? _list;
     private FilterBindingList<Conversation>? _convos;
-    private List<(int? Value, string Text)> _classes = [], _sections = [], _bloodGroups = [];
+    private List<(int? Value, string Text)> _classes = [], _sections = [], _bloodGroups = [], _convoTypes = [];
     private List<Family> _allFamilies = [];
     private Student? _current;
     private object? _pendingNavigation;
@@ -50,7 +51,7 @@ public sealed class StudentsScreen : ScreenBase
     public StudentsScreen(ScreenContext ctx) : base(ctx)
     {
         _canEdit = ctx.Session.CanEdit(AppArea.Students);
-        _family = new FamilyFields(_canEdit) { Dock = DockStyle.Fill };
+        _family = new FamilyFields(_canEdit);
         _store = new StudentDocumentStore(ctx.Config, ctx.Session);
 
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, BackColor = Color.Transparent, WrapContents = false };
@@ -72,7 +73,7 @@ public sealed class StudentsScreen : ScreenBase
         _tabs.Pages.Add(Page("General", _generalHost));
         _tabs.Pages.Add(Page("Family", FamilyTab()));
         _tabs.Pages.Add(Page("Conversations", ConversationTab()));
-        _tabs.Pages.Add(Page("Pictures & documents", DocumentsTab()));
+        _tabs.Pages.Add(Page("Pictures && documents", DocumentsTab()));
         _tabs.Pages.Add(Page("Fees", Later("The fee ledger for this student comes in phase 3. Until then, use Access.")));
         _tabs.Pages.Add(Page("Attendance", Later("Attendance history comes with the attendance module (phase 6).")));
         _detail.Controls.Add(_tabs);
@@ -100,17 +101,9 @@ public sealed class StudentsScreen : ScreenBase
 
     private static Control Later(string text) => new KryptonLabel { Text = text, Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
 
+    /// <summary>Built once; <see cref="FillLists"/> refills the drop-downs after each load.</summary>
     private void BuildGeneralTab()
     {
-        // Rebuilt after loading so the drop-downs get the class, section and blood group lists.
-        // Take out the controls that are reused before the old panels are disposed.
-        _changeFamily.Parent?.Controls.Remove(_changeFamily);
-        _photo.Parent?.Controls.Remove(_photo);
-        foreach (var old in _generalHost.Controls.Cast<Control>().ToList())
-        {
-            _generalHost.Controls.Remove(old);
-            old.Dispose();
-        }
         var f = new FieldPanel(4);
         var cc = f.Add("CC", Inputs.Text(_bs, nameof(Student.Id), readOnly: true));
         cc.DataBindings[0].Format += (_, e) => { if (e.Value is 0) e.Value = "(new)"; };
@@ -128,13 +121,13 @@ public sealed class StudentsScreen : ScreenBase
         f.Add("Sex", Inputs.Combo<string>(_bs, nameof(Student.Sex), [(null, ""), ("MALE", "Male"), ("FEMALE", "Female")]));
         f.Add("Birth date", Inputs.Date(_bs, nameof(Student.BirthDate)));
         f.Add("Birth place", Inputs.Text(_bs, nameof(Student.BirthPlace)));
-        f.Add("Form-B no.", Inputs.Text(_bs, nameof(Student.FormB)));
+        f.Add("Form-B no.", Inputs.Cnic(_bs, nameof(Student.FormB)));
         f.Add("Admission date", Inputs.Date(_bs, nameof(Student.AdmissionDate)));
         f.Add("Admission class", Inputs.Text(_bs, nameof(Student.AdmissionClass)));
-        f.Add("Current class", Inputs.Combo(_bs, nameof(Student.ClassId), _classes));
-        f.Add("Section", Inputs.Combo(_bs, nameof(Student.SectionId), _sections));
-        f.Add("Blood group", Inputs.Combo(_bs, nameof(Student.BloodGroupId), _bloodGroups));
-        f.Add("WhatsApp", Inputs.Text(_bs, nameof(Student.WhatsApp)));
+        _classCombo = f.Add("Current class", Inputs.Combo(_bs, nameof(Student.ClassId), _classes));
+        _sectionCombo = f.Add("Section", Inputs.Combo(_bs, nameof(Student.SectionId), _sections));
+        _bloodCombo = f.Add("Blood group", Inputs.Combo(_bs, nameof(Student.BloodGroupId), _bloodGroups));
+        f.Add("WhatsApp", Inputs.Phone(_bs, nameof(Student.WhatsApp)));
         f.Add("Email", Inputs.Text(_bs, nameof(Student.Email)), 2);
         f.Add("", Inputs.Check(_bs, nameof(Student.OnRoll), "Currently in school (on roll)"));
         f.Add("Left as", Inputs.Combo<string>(_bs, nameof(Student.LeavingType), [(null, ""), ("Left", "Left"), ("Transfer", "Transfer")]));
@@ -149,14 +142,26 @@ public sealed class StudentsScreen : ScreenBase
         change.Click += (_, _) => ChoosePhoto();
         photoPanel.Controls.Add(change);
 
+        _generalHost.SuspendLayout();
         _generalHost.Controls.Add(f);
         _generalHost.Controls.Add(photoPanel);
+        _generalHost.ResumeLayout(true);
         _changeFamily.Enabled = _canEdit;
+    }
+
+    private ComboBox? _classCombo, _sectionCombo, _bloodCombo;
+
+    private void FillLists()
+    {
+        if (_classCombo is null || _sectionCombo is null || _bloodCombo is null) return;
+        Inputs.SetItems(_classCombo, _classes);
+        Inputs.SetItems(_sectionCombo, _sections);
+        Inputs.SetItems(_bloodCombo, _bloodGroups);
     }
 
     private Control FamilyTab()
     {
-        var host = new KryptonPanel();
+        var host = new KryptonPanel { AutoScroll = true };
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, BackColor = Color.Transparent };
         var open = new KryptonButton { Text = "Open in Family screen", AutoSize = true };
         open.Click += (_, _) => { if (_current?.FamilyId is int id) Ctx.OpenScreenAt("family", id); };
@@ -184,10 +189,10 @@ public sealed class StudentsScreen : ScreenBase
     private Control DocumentsTab()
     {
         var host = new KryptonPanel();
-        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, BackColor = Color.Transparent, WrapContents = false };
+        var bar = _docBar;
         KryptonButton Button(string text, Action click, bool edit)
         {
-            var b = new KryptonButton { Text = text, AutoSize = true };
+            var b = new KryptonButton { Text = text };
             b.Click += (_, _) => click();
             bar.Controls.Add(b);
             if (edit) _docEditButtons.Add(b);
@@ -198,35 +203,78 @@ public sealed class StudentsScreen : ScreenBase
         Button("Save a copy…", SaveDocumentCopy, edit: false);
         Button("Delete", DeleteDocument, edit: true);
         bar.Controls.Add(_docInfo);
+        SizeDocBar();
+        Theme.Changed += OnThemeChanged;
         _docGrid.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) OpenDocument(); };
         host.Controls.Add(_docGrid);
         host.Controls.Add(bar);
         return host;
     }
 
+    /// <summary>Sizes the document buttons from their text, so they fit at every font size (Krypton's AutoSize buttons overlap).</summary>
+    private void SizeDocBar()
+    {
+        var height = Theme.RowHeight + 2;
+        foreach (Control c in _docBar.Controls)
+            if (c is KryptonButton b)
+                b.Size = new Size(TextRenderer.MeasureText(b.Text, Theme.BaseFont).Width + 24, height);
+        _docInfo.Margin = new Padding(8, (height - _docInfo.PreferredSize.Height) / 2 + 3, 3, 3);
+        _docBar.Height = height + 10;
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e) => SizeDocBar();
+
     // ----- Loading -----
 
     public override bool SupportsRecords => true;
-    public override bool HasChanges => _db?.ChangeTracker.HasChanges() == true;
+    // The context is busy on a background thread while loading, so it must not be touched then.
+    private bool _loading;
+    public override bool HasChanges => !_loading && _db?.ChangeTracker.HasChanges() == true;
     public override string StatusText => _list is null ? "Loading…" : $"Students: {_grid.RecordText()}{(HasChanges ? "  ·  unsaved changes" : "")}";
 
     public override void Reload()
     {
+        if (!_loading) _ = ReloadAsync();
+    }
+
+    private sealed record LoadedData(
+        List<(int? Value, string Text)> Classes, List<(int? Value, string Text)> Sections, List<(int? Value, string Text)> BloodGroups,
+        List<(int? Value, string Text)> ConversationTypes, List<Family> Families, List<Student> Students);
+
+    /// <summary>Runs on a background thread, so the screen opens straight away and stays responsive while the data comes in.</summary>
+    private static LoadedData LoadData(ArqamDbContext db)
+    {
+        List<(int? Value, string Text)> Blank() => [(null, "")];
+        var classes = Blank();
+        classes.AddRange(db.Classes.OrderBy(c => c.SortName).Select(c => new { c.Id, c.Name }).AsEnumerable().Select(c => ((int?)c.Id, c.Name ?? "")));
+        var sections = Blank();
+        sections.AddRange(db.Sections.OrderBy(s => s.Name).Select(s => new { s.Id, s.Name }).AsEnumerable().Select(s => ((int?)s.Id, s.Name ?? "")));
+        var bloodGroups = Blank();
+        bloodGroups.AddRange(db.BloodGroups.OrderBy(b => b.Id).AsEnumerable().Select(b => ((int?)b.Id, (b.Name ?? "").Split('\n')[0].Trim())));
+        var convoTypes = db.ConversationTypes.OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).AsEnumerable().Select(t => ((int?)t.Id, t.Name ?? "")).ToList();
+        var families = db.Families.ToList();
+        var students = db.Students.Include(s => s.Family).OrderBy(s => s.Name).ToList();
+        return new LoadedData(classes, sections, bloodGroups, convoTypes, families, students);
+    }
+
+    private async Task ReloadAsync()
+    {
+        using var t = Timing.Step("Students.Reload");
         var keep = _current?.Id;
         _db?.Dispose();
-        _db = Ctx.Config.CreateContext(Ctx.Session);
+        var db = _db = Ctx.Config.CreateContext(Ctx.Session);
         UseWaitCursor = true;
         try
         {
-            _classes = [(null, "")];
-            _classes.AddRange(_db.Classes.OrderBy(c => c.SortName).Select(c => new { c.Id, c.Name }).AsEnumerable().Select(c => ((int?)c.Id, c.Name ?? "")));
-            _sections = [(null, "")];
-            _sections.AddRange(_db.Sections.OrderBy(s => s.Name).Select(s => new { s.Id, s.Name }).AsEnumerable().Select(s => ((int?)s.Id, s.Name ?? "")));
-            _bloodGroups = [(null, "")];
-            _bloodGroups.AddRange(_db.BloodGroups.OrderBy(b => b.Id).AsEnumerable().Select(b => ((int?)b.Id, (b.Name ?? "").Split('\n')[0].Trim())));
+            _loading = true;
+            LoadedData data;
+            try { data = await Task.Run(() => LoadData(db)); }
+            finally { _loading = false; }
+            t.Mark("load data (background)");
+            if (!ReferenceEquals(db, _db) || IsDisposed) return; // a newer reload has started, or the tab was closed
 
-            _allFamilies = _db.Families.ToList();
-            var students = _db.Students.Include(s => s.Family).OrderBy(s => s.Name).ToList();
+            (_classes, _sections, _bloodGroups, _convoTypes, _allFamilies) = (data.Classes, data.Sections, data.BloodGroups, data.ConversationTypes, data.Families);
+            var students = data.Students;
 
             FillFilter(_classFilter, "All classes", _classes.Skip(1));
             FillFilter(_sectionFilter, "All sections", _sections.Skip(1));
@@ -240,14 +288,19 @@ public sealed class StudentsScreen : ScreenBase
             _grid.AddText(nameof(Student.FamilyId), "Family", 70);
             _grid.AddText(nameof(Student.StatusText), "Status", 90);
             _grid.AddText(nameof(Student.AdmissionDate), "Admitted", 95, format: "dd/MM/yyyy");
-            _grid.AddText(nameof(Student.WhatsApp), "WhatsApp", 120);
+            _grid.AddText(nameof(Student.WhatsApp), "WhatsApp", 130);
+            _grid.FormatNumbers(nameof(Student.WhatsApp), NumberFormat.Phone);
             foreach (DataGridViewColumn c in _grid.Columns)
                 if (c is DataGridViewComboBoxColumn combo) combo.DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing;
 
+            t.Mark("filters + columns");
             _list = new FilterBindingList<Student>(students);
             _grid.Bind(_list);
-            BuildGeneralTab();
+            t.Mark("bind grid");
+            FillLists();
+            t.Mark("fill drop-downs");
             ApplyFilters();
+            t.Mark("apply filters");
             if (keep is int id) SelectStudent(id);
         }
         catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or InvalidOperationException)
@@ -267,7 +320,7 @@ public sealed class StudentsScreen : ScreenBase
         RaiseStatusChanged();
     }
 
-    private static void FillFilter(KryptonComboBox combo, string all, IEnumerable<(int? Value, string Text)> items)
+    private static void FillFilter(ComboBox combo, string all, IEnumerable<(int? Value, string Text)> items)
     {
         var selected = combo.SelectedItem as Inputs.Item<int?>;
         var list = new List<Inputs.Item<int?>> { new(null, all) };
@@ -299,22 +352,26 @@ public sealed class StudentsScreen : ScreenBase
         s.Id.ToString() == term
         || (s.Name?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
         || (s.FatherName?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
-        || (s.FormB?.Contains(term) ?? false)
-        || (digits.Length >= 4 && new[] { s.WhatsApp, s.Family?.Mobile, s.Family?.MotherMobile, s.Family?.PhoneHome }
+        || (digits.Length >= 4 && new[] { s.FormB, s.WhatsApp, s.Family?.Mobile, s.Family?.MotherMobile, s.Family?.PhoneHome }
             .Any(p => p is not null && new string(p.Where(char.IsDigit).ToArray()).Contains(digits)));
 
     private void ShowCurrent()
     {
         var next = _grid.CurrentRow?.DataBoundItem as Student;
         if (ReferenceEquals(next, _current)) return;
+        using var t = Timing.Step($"Students.ShowCurrent CC {next?.Id}");
         CommitEdits();
         _current = next;
         _bs.DataSource = next ?? (object)typeof(Student);
         _generalHost.Enabled = next is not null;
+        t.Mark("bind General");
         _family.Show(next?.Family);
         _header.Text = next is null ? "" : $"{next.Name}  {(next.Sex == "FEMALE" ? "D/o" : "S/o")} {next.FatherName}   ·   CC {(next.Id == 0 ? "(new)" : next.Id)}";
+        t.Mark("family");
         ShowConversations(next);
+        t.Mark("conversations");
         ShowDocuments(next);
+        t.Mark("documents + photo");
         RaiseStatusChanged();
     }
 
@@ -325,9 +382,8 @@ public sealed class StudentsScreen : ScreenBase
         if (student.Id != 0 && !_db.Entry(student).Collection(s => s.Conversations).IsLoaded)
             _db.Entry(student).Collection(s => s.Conversations).Load();
 
-        var types = _db.ConversationTypes.OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).ToList();
         _convoGrid.AddText(nameof(Conversation.Date), "Date", 95, format: "dd/MM/yyyy");
-        _convoGrid.AddCombo(nameof(Conversation.TypeId), "Type", types.Select(t => ((int?)t.Id, t.Name ?? "")), 170);
+        _convoGrid.AddCombo(nameof(Conversation.TypeId), "Type", _convoTypes, 170);
         _convoGrid.AddText(nameof(Conversation.Transcript), "What was said", 250, fill: true);
         _convoGrid.AddCheck(nameof(Conversation.IsIssue), "Issue", 55);
         _convoGrid.AddCheck(nameof(Conversation.IsResolved), "Resolved", 70);
@@ -559,7 +615,7 @@ public sealed class StudentsScreen : ScreenBase
 
     public override bool SaveChanges()
     {
-        if (_db is null || !_canEdit) return true;
+        if (_db is null || _loading || !_canEdit) return true;
         CommitEdits();
         var changed = _db.ChangeTracker.Entries<Student>().Where(e => e.State is EntityState.Added or EntityState.Modified).Select(e => e.Entity).ToList();
         var problem = changed.Select(s =>
@@ -692,6 +748,7 @@ public sealed class StudentsScreen : ScreenBase
     {
         if (disposing)
         {
+            Theme.Changed -= OnThemeChanged;
             _db?.Dispose();
             _photo.Image?.Dispose();
         }

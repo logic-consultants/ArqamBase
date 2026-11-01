@@ -20,6 +20,39 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
 
     /// <summary>
+    /// Fee owed per student (CC → amount): the total of the student's unpaid challans in Feerecipt, as the Access ledger's "Unpaid TOTAL".
+    /// </summary>
+    public Dictionary<int, int> UnpaidBalances() =>
+        Database.SqlQuery<StudentBalance>($"""
+            SELECT CC AS StudentId,
+                   SUM(ISNULL(TuitionFee, 0) + ISNULL(ExamsFee, 0) + ISNULL(Mis_fee, 0) + ISNULL(AdmissionFee, 0)
+                       + ISNULL(Fine, 0) + ISNULL(Other, 0) + ISNULL(ProspectusFee, 0)) AS Balance
+            FROM dbo.Feerecipt
+            WHERE Paid = 0 AND ISNULL(isDeleted, 0) = 0 AND CC IS NOT NULL
+            GROUP BY CC
+            """)
+            .ToDictionary(b => b.StudentId, b => b.Balance);
+
+    /// <summary>
+    /// Monthly fee per student (CC → tuition fee) from the fee definition (FeeDefinitation). If a student has more than one, the newest counts.
+    /// </summary>
+    public Dictionary<int, int> MonthlyFees() =>
+        Database.SqlQuery<StudentBalance>($"""
+            SELECT FK_CC AS StudentId, ISNULL(TuitionFee, 0) AS Balance
+            FROM (SELECT FK_CC, TuitionFee, ROW_NUMBER() OVER (PARTITION BY FK_CC ORDER BY FeeDefId DESC) AS N
+                  FROM dbo.FeeDefinitation WHERE ISNULL(isDeleted, 0) = 0 AND FK_CC IS NOT NULL) d
+            WHERE N = 1
+            """)
+            .ToDictionary(b => b.StudentId, b => b.Balance);
+
+    /// <summary>A student's CC and an amount (used by the queries above).</summary>
+    private sealed class StudentBalance
+    {
+        public int StudentId { get; set; }
+        public int Balance { get; set; }
+    }
+
+    /// <summary>
     /// Creates a context. Connections are opened with the given Windows credentials (when a token is passed)
     /// and tell SQL Server which app user is working, for the audit triggers.
     /// </summary>

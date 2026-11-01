@@ -86,7 +86,7 @@ public sealed class PickFamilyForm : KryptonForm
         public override string ToString()
         {
             var kids = string.Join(", ", Family.Students.Where(s => s.OnRoll).Select(s => s.Name));
-            return $"{Family.Id}  ·  {Family.FatherName}  ·  {Family.Mobile}{(kids.Length > 0 ? $"  ·  children: {kids}" : "")}";
+            return $"{Family.Id}  ·  {Family.FatherName}  ·  {Core.NumberFormat.Phone(Family.Mobile)}{(kids.Length > 0 ? $"  ·  children: {kids}" : "")}";
         }
     }
 }

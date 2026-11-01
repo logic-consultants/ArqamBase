@@ -20,7 +20,8 @@ static class Program
         // The theme manager must exist before the sign-in window so it is themed too.
         KryptonManager.UseAdministratorSuffix = false;
         using var themeManager = new KryptonManager { GlobalApplyToolstrips = true };
-        Theme.Apply(themeManager, settings.Theme);
+        Theme.Apply(themeManager, settings);
+        Application.SetDefaultFont(Theme.BaseFont); // for standard controls in dialogs; a change in Settings reaches them after a restart
 
         using var login = new LoginForm(config, settings);
         if (login.ShowDialog() != DialogResult.OK || login.Session is null)

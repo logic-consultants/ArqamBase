@@ -40,6 +40,7 @@ public static class ScreenCatalog
         new("reports", "Reports centre", "Reports", Icons.Chart, 4, "the Access reports"),
 
         new("setuplists", "Setup lists", "Setup", Icons.Grid, 1, Create: c => new SetupListsScreen(c)),
+        new("schoolinfo", "School information", "Setup", Icons.School, 2, "CampusInfo", c => new SchoolInfoScreen(c)),
         new("settings", "Settings", "Setup", Icons.Settings, 1, Create: c => new SettingsScreen(c)),
     ];
 

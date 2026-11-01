@@ -119,6 +119,29 @@ public class Card : StackPanel
     }
 }
 
+/// <summary>A white box with a rounded border that fills the space it is given (e.g. the details under a list).</summary>
+public sealed class FillCard : Panel
+{
+    public FillCard()
+    {
+        Dock = DockStyle.Fill;
+        Padding = new Padding(12, 8, 12, 12);
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.ResizeRedraw, true);
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        e.Graphics.Clear(Parent?.BackColor ?? Theme.CardBack);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = Card.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), 6);
+        using var fill = new SolidBrush(Theme.CardBack);
+        using var pen = new Pen(Theme.CardBorder);
+        e.Graphics.FillPath(fill, path);
+        e.Graphics.DrawPath(pen, path);
+    }
+}
+
 /// <summary>A small box with a caption and one large figure, e.g. "Family balance / Rs 8,600 due".</summary>
 public sealed class StatCard : Card
 {

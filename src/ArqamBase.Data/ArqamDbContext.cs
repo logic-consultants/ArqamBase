@@ -18,6 +18,7 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<BloodGroup> BloodGroups => Set<BloodGroup>();
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
+    public DbSet<Campus> Campuses => Set<Campus>();
 
     /// <summary>
     /// Fee owed per student (CC → amount): the total of the student's unpaid challans in Feerecipt, as the Access ledger's "Unpaid TOTAL".
@@ -44,6 +45,14 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             WHERE N = 1
             """)
             .ToDictionary(b => b.StudentId, b => b.Balance);
+
+    /// <summary>Who last changed a row and when, from the audit log (null if never changed or the audit log is not installed).</summary>
+    public LastChange? LastChangeOf(string table, int key) =>
+        Database.SqlQuery<LastChange>($"""
+            SELECT TOP 1 COALESCE(WindowsUser, SqlLogin) AS ChangedBy, ChangedAt
+            FROM audit.AuditLog WHERE TableName = {table} AND KeyValue = {key}
+            ORDER BY ChangedAt DESC
+            """).AsEnumerable().FirstOrDefault();
 
     /// <summary>A student's CC and an amount (used by the queries above).</summary>
     private sealed class StudentBalance
@@ -182,6 +191,7 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Remarks).HasMaxLength(255);
             e.Ignore(x => x.FatherName);
             e.Ignore(x => x.StatusText);
+            e.Ignore(x => x.StatusChoice);
             e.HasOne(x => x.Family).WithMany(f => f.Students).HasForeignKey(x => x.FamilyId).IsRequired(false);
             e.HasMany(x => x.Conversations).WithOne().HasForeignKey(c => c.StudentId).IsRequired(false);
             MapSoftDelete(e);
@@ -255,6 +265,20 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.ToTable("tblBloodGroups");
             e.Property(x => x.Id).HasColumnName("ID");
             e.Property(x => x.Name).HasColumnName("BloodGroup");
+        });
+
+        b.Entity<Campus>(e =>
+        {
+            e.ToTable("CampusInfo");
+            e.Property(x => x.Id).HasColumnName("CampusID");
+            e.Property(x => x.Name).HasColumnName("CampusName").HasMaxLength(100);
+            e.Property(x => x.Address).HasMaxLength(100);
+            e.Property(x => x.Phone1).HasColumnName("Ph1").HasMaxLength(100);
+            e.Property(x => x.Phone2).HasColumnName("Ph2").HasMaxLength(100);
+            e.Property(x => x.Phone3).HasColumnName("Ph3").HasMaxLength(100);
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            e.Ignore(x => x.Phones);
+            MapSoftDelete(e);
         });
     }
 

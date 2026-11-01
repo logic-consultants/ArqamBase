@@ -20,11 +20,12 @@ public sealed class StudentsScreen : ScreenBase
 {
     private readonly bool _canEdit;
     private readonly KryptonTextBox _search = new() { Width = 280, CueHint = { CueHintText = "Search name, CC, father, phone or Form-B" } };
+    private readonly ComboBox _schoolFilter = new() { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _classFilter = new() { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _sectionFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _statusFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly Label _filterChip = new() { AutoSize = true, Visible = false, Padding = new Padding(8, 3, 8, 3), Margin = new Padding(8, 5, 3, 3) };
     private readonly AccessGrid _grid = new() { ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false };
-    private readonly KryptonLabel _header = new() { Dock = DockStyle.Top, LabelStyle = LabelStyle.TitlePanel, AutoSize = true };
     private readonly KryptonNavigator _tabs = new() { Dock = DockStyle.Fill, NavigatorMode = NavigatorMode.BarTabGroup };
     private readonly BindingSource _bs = new() { DataSource = typeof(Student) };
     private readonly PictureBox _photo = new() { Size = new Size(150, 180), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle };
@@ -45,8 +46,13 @@ public sealed class StudentsScreen : ScreenBase
     private FilterBindingList<Conversation>? _convos;
     private List<(int? Value, string Text)> _classes = [], _sections = [], _bloodGroups = [], _convoTypes = [];
     private List<Family> _allFamilies = [];
+    /// <summary>Class → school (from the class's department).</summary>
+    private Dictionary<int, (int Id, string Name)> _classSchool = [];
+    private List<(int? Value, string Text)> _schools = [];
     private Student? _current;
     private object? _pendingNavigation;
+    private string _lastChange = "";
+    private readonly IReadOnlyList<ScreenCommandGroup> _commands;
 
     public StudentsScreen(ScreenContext ctx) : base(ctx)
     {
@@ -55,16 +61,23 @@ public sealed class StudentsScreen : ScreenBase
         _store = new StudentDocumentStore(ctx.Config, ctx.Session);
 
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, BackColor = Color.Transparent, WrapContents = false };
-        bar.Controls.AddRange([_search, _classFilter, _sectionFilter, _statusFilter]);
-        _statusFilter.Items.AddRange(["On roll", "Not on roll", "All students"]);
+        bar.Controls.AddRange([_search, _schoolFilter, _classFilter, _sectionFilter, _statusFilter, _filterChip,
+            new Label { Text = "Click a column heading to sort; use its arrow to filter", AutoSize = true, ForeColor = Theme.Muted, Margin = new Padding(12, 8, 3, 3), BackColor = Color.Transparent }]);
+        _statusFilter.Items.AddRange(["Status: Active", "Status: Not active", "All students"]);
         _statusFilter.SelectedIndex = 0;
         _search.TextChanged += (_, _) => ApplyFilters();
+        _schoolFilter.SelectedIndexChanged += (_, _) => ApplyFilters();
         _classFilter.SelectedIndexChanged += (_, _) => ApplyFilters();
         _sectionFilter.SelectedIndexChanged += (_, _) => ApplyFilters();
         _statusFilter.SelectedIndexChanged += (_, _) => ApplyFilters();
 
         _grid.SelectionChanged += (_, _) => ShowCurrent();
-        _grid.FilterChanged += (_, _) => RaiseStatusChanged();
+        _grid.FilterChanged += (_, _) => { ShowFilterChip(); RaiseStatusChanged(); };
+        _grid.CellFormatting += (_, e) =>
+        {
+            if (e.RowIndex >= 0 && e.CellStyle is not null && _grid.Columns[e.ColumnIndex].DataPropertyName == nameof(Student.StatusText))
+                e.CellStyle.ForeColor = Equals(e.Value, "Active") ? Theme.Good : Theme.Muted;
+        };
 
         _changeFamily.Click += (_, _) => ChangeFamily();
         BuildGeneralTab();
@@ -72,22 +85,44 @@ public sealed class StudentsScreen : ScreenBase
         _tabs.Button.ContextButtonDisplay = ButtonDisplay.Hide;
         _tabs.Pages.Add(Page("General", _generalHost));
         _tabs.Pages.Add(Page("Family", FamilyTab()));
-        _tabs.Pages.Add(Page("Conversations", ConversationTab()));
-        _tabs.Pages.Add(Page("Pictures && documents", DocumentsTab()));
         _tabs.Pages.Add(Page("Fees", Later("The fee ledger for this student comes in phase 3. Until then, use Access.")));
         _tabs.Pages.Add(Page("Attendance", Later("Attendance history comes with the attendance module (phase 6).")));
+        _tabs.Pages.Add(Page("Conversations", ConversationTab()));
+        _tabs.Pages.Add(Page("Documents", DocumentsTab()));
         _detail.Controls.Add(_tabs);
-        _detail.Controls.Add(_header);
 
+        var card = new FillCard();
+        card.Controls.Add(_detail);
         var split = new KryptonSplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
         split.Panel1.Controls.Add(_grid);
-        split.Panel2.Controls.Add(_detail);
+        split.Panel2.Padding = new Padding(0, 8, 0, 0);
+        split.Panel2.Controls.Add(card);
         WhenSized(split, () => split.SplitterDistance = Math.Max(160, split.Height * 9 / 20));
 
         Controls.Add(split);
         Controls.Add(bar);
+
+        _commands =
+        [
+            new("Student",
+                new("Fee ledger", Icons.Ledger, () => NotYet("The fee ledger comes with the Fees screens (phase 3).")),
+                new("Family", Icons.People, () => { if (_current?.FamilyId is int id) Ctx.OpenScreenAt("family", id); }),
+                new("Send WhatsApp", Icons.Chat, () => NotYet("Sending WhatsApp messages comes with the Messages screens (phase 5)."))),
+            new("Print",
+                new("ID card", Icons.IdCard, PrintIdCards),
+                new("Leaving cert.", Icons.Document, PrintLeavingCertificate),
+                new("Bonafide cert.", Icons.Document, PrintBonafideCertificate)),
+            new("Export",
+                new("Excel", Icons.Excel, ExportExcel),
+                new("PDF", Icons.Document, ExportPdf)),
+        ];
         HandleCreated += (_, _) => Reload();
     }
+
+    public override IReadOnlyList<ScreenCommandGroup> Commands => _commands;
+
+    private void NotYet(string message) =>
+        KryptonMessageBox.Show(this, message, "Students", KryptonMessageBoxButtons.OK, KryptonMessageBoxIcon.Information);
 
     // ----- Layout -----
 
@@ -109,6 +144,10 @@ public sealed class StudentsScreen : ScreenBase
         cc.DataBindings[0].Format += (_, e) => { if (e.Value is 0) e.Value = "(new)"; };
         f.Add("DS#", Inputs.Text(_bs, nameof(Student.DsNo)));
         var famId = Inputs.Text(_bs, nameof(Student.FamilyId), readOnly: true);
+        famId.DataBindings[0].Format += (_, e) =>
+        {
+            if (_bs.Current is Student s) e.Value = s.FamilyId is int id ? $"{id} · {s.FatherName}" : s.Family is not null ? $"(new) · {s.FatherName}" : "";
+        };
         var famRow = new TableLayoutPanel { ColumnCount = 2, Height = 28, BackColor = Color.Transparent };
         famRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         famRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -127,18 +166,18 @@ public sealed class StudentsScreen : ScreenBase
         _classCombo = f.Add("Current class", Inputs.Combo(_bs, nameof(Student.ClassId), _classes));
         _sectionCombo = f.Add("Section", Inputs.Combo(_bs, nameof(Student.SectionId), _sections));
         _bloodCombo = f.Add("Blood group", Inputs.Combo(_bs, nameof(Student.BloodGroupId), _bloodGroups));
+        var status = f.Add("Status", Inputs.Combo<string>(_bs, nameof(Student.StatusChoice), [("Active", "Active"), ("Left", "Left"), ("Transfer", "Transfer")]));
+        status.SelectionChangeCommitted += (_, _) => { _grid.Invalidate(); RaiseStatusChanged(); };
         f.Add("WhatsApp", Inputs.Phone(_bs, nameof(Student.WhatsApp)));
-        f.Add("Email", Inputs.Text(_bs, nameof(Student.Email)), 2);
-        f.Add("", Inputs.Check(_bs, nameof(Student.OnRoll), "Currently in school (on roll)"));
-        f.Add("Left as", Inputs.Combo<string>(_bs, nameof(Student.LeavingType), [(null, ""), ("Left", "Left"), ("Transfer", "Transfer")]));
+        f.Add("Email", Inputs.Text(_bs, nameof(Student.Email)));
         f.Add("Leaving date", Inputs.Date(_bs, nameof(Student.LeavingDate)));
-        f.Add("Reason for leaving", Inputs.Text(_bs, nameof(Student.LeavingReason)));
-        f.Add("Remarks", Inputs.Text(_bs, nameof(Student.Remarks), multiline: true), 4);
+        f.Add("Reason for leaving", Inputs.Text(_bs, nameof(Student.LeavingReason)), 3);
+        f.Add("Remarks", Inputs.Text(_bs, nameof(Student.Remarks)), 4);
         f.Enabled = _canEdit;
 
         var photoPanel = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 170, FlowDirection = FlowDirection.TopDown, BackColor = Color.Transparent, Padding = new Padding(8, 0, 0, 0) };
         photoPanel.Controls.Add(_photo);
-        var change = new KryptonButton { Text = "Change photo…", Width = 150, Enabled = _canEdit };
+        var change = new KryptonButton { Text = "Change photo", Width = 150, Enabled = _canEdit };
         change.Click += (_, _) => ChoosePhoto();
         photoPanel.Controls.Add(change);
 
@@ -230,7 +269,8 @@ public sealed class StudentsScreen : ScreenBase
     // The context is busy on a background thread while loading, so it must not be touched then.
     private bool _loading;
     public override bool HasChanges => !_loading && _db?.ChangeTracker.HasChanges() == true;
-    public override string StatusText => _list is null ? "Loading…" : $"Students: {_grid.RecordText()}{(HasChanges ? "  ·  unsaved changes" : "")}";
+    public override string StatusText => _list is null ? "Loading…"
+        : $"Students: {_grid.RecordText()}{(HasChanges ? "  ·  unsaved changes" : "")}{(_lastChange.Length > 0 ? "  ·  " + _lastChange : "")}";
 
     public override void Reload()
     {
@@ -239,7 +279,8 @@ public sealed class StudentsScreen : ScreenBase
 
     private sealed record LoadedData(
         List<(int? Value, string Text)> Classes, List<(int? Value, string Text)> Sections, List<(int? Value, string Text)> BloodGroups,
-        List<(int? Value, string Text)> ConversationTypes, List<Family> Families, List<Student> Students);
+        List<(int? Value, string Text)> ConversationTypes, List<Family> Families, List<Student> Students,
+        Dictionary<int, (int Id, string Name)> ClassSchool, List<(int? Value, string Text)> Schools);
 
     /// <summary>Runs on a background thread, so the screen opens straight away and stays responsive while the data comes in.</summary>
     private static LoadedData LoadData(ArqamDbContext db)
@@ -254,7 +295,13 @@ public sealed class StudentsScreen : ScreenBase
         var convoTypes = db.ConversationTypes.OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).AsEnumerable().Select(t => ((int?)t.Id, t.Name ?? "")).ToList();
         var families = db.Families.ToList();
         var students = db.Students.Include(s => s.Family).OrderBy(s => s.Name).ToList();
-        return new LoadedData(classes, sections, bloodGroups, convoTypes, families, students);
+        var classSchool = (from c in db.Classes
+                           join d in db.Departments on c.DepartmentId equals d.Id
+                           join sc in db.Schools on d.SchoolId equals sc.Id
+                           select new { ClassId = c.Id, SchoolId = sc.Id, sc.Name }).AsEnumerable()
+            .ToDictionary(x => x.ClassId, x => (x.SchoolId, x.Name ?? ""));
+        var schools = db.Schools.OrderBy(s => s.Id).AsEnumerable().Select(s => ((int?)s.Id, s.Name ?? "")).ToList();
+        return new LoadedData(classes, sections, bloodGroups, convoTypes, families, students, classSchool, schools);
     }
 
     private async Task ReloadAsync()
@@ -274,10 +321,12 @@ public sealed class StudentsScreen : ScreenBase
             if (!ReferenceEquals(db, _db) || IsDisposed) return; // a newer reload has started, or the tab was closed
 
             (_classes, _sections, _bloodGroups, _convoTypes, _allFamilies) = (data.Classes, data.Sections, data.BloodGroups, data.ConversationTypes, data.Families);
+            (_classSchool, _schools) = (data.ClassSchool, data.Schools);
             var students = data.Students;
 
-            FillFilter(_classFilter, "All classes", _classes.Skip(1));
-            FillFilter(_sectionFilter, "All sections", _sections.Skip(1));
+            FillFilter(_schoolFilter, "All schools", _schools);
+            FillFilter(_classFilter, "All classes", _classes.Skip(1).Select(c => (c.Value, $"Class: {c.Text}")));
+            FillFilter(_sectionFilter, "All sections", _sections.Skip(1).Select(s => (s.Value, $"Section: {s.Text}")));
 
             _grid.ResetColumns();
             _grid.AddText(nameof(Student.Id), "CC", 70);
@@ -335,17 +384,36 @@ public sealed class StudentsScreen : ScreenBase
         if (_list is null) return;
         var term = _search.Text.Trim();
         var digits = new string(term.Where(char.IsDigit).ToArray());
+        var schoolId = (_schoolFilter.SelectedItem as Inputs.Item<int?>)?.Value;
         var classId = (_classFilter.SelectedItem as Inputs.Item<int?>)?.Value;
         var sectionId = (_sectionFilter.SelectedItem as Inputs.Item<int?>)?.Value;
         var status = _statusFilter.SelectedIndex;
 
         _list.SetSearch(s =>
             (status == 2 || s.OnRoll == (status == 0) || s.Id == 0)
+            && (schoolId is null || (s.ClassId is int c && _classSchool.TryGetValue(c, out var school) && school.Id == schoolId))
             && (classId is null || s.ClassId == classId)
             && (sectionId is null || s.SectionId == sectionId)
             && (term.Length == 0 || MatchesSearch(s, term, digits)));
         _grid.Invalidate();
+        ShowFilterChip();
         RaiseStatusChanged();
+    }
+
+    /// <summary>"Filtered: Class = Five, Section = Rose" when the list is narrowed beyond the usual active students.</summary>
+    private void ShowFilterChip()
+    {
+        static string? Name(ComboBox combo) => combo.SelectedIndex > 0 && combo.SelectedItem is Inputs.Item<int?> item ? item.Text.Split(": ").Last() : null;
+        var parts = new List<string>();
+        if (Name(_schoolFilter) is { } school) parts.Add($"School = {school}");
+        if (Name(_classFilter) is { } cls) parts.Add($"Class = {cls}");
+        if (Name(_sectionFilter) is { } section) parts.Add($"Section = {section}");
+        if (_search.Text.Trim() is { Length: > 0 } term) parts.Add($"\"{term}\"");
+        if (_list?.AnyFilter == true) parts.Add("column filters");
+        _filterChip.Text = "Filtered: " + string.Join(", ", parts);
+        _filterChip.BackColor = Theme.Selected;
+        _filterChip.ForeColor = Theme.Text;
+        _filterChip.Visible = parts.Count > 0;
     }
 
     private static bool MatchesSearch(Student s, string term, string digits) =>
@@ -366,12 +434,35 @@ public sealed class StudentsScreen : ScreenBase
         _generalHost.Enabled = next is not null;
         t.Mark("bind General");
         _family.Show(next?.Family);
-        _header.Text = next is null ? "" : $"{next.Name}  {(next.Sex == "FEMALE" ? "D/o" : "S/o")} {next.FatherName}   ·   CC {(next.Id == 0 ? "(new)" : next.Id)}";
         t.Mark("family");
+        _ = ShowLastChangeAsync(next);
         ShowConversations(next);
         t.Mark("conversations");
         ShowDocuments(next);
         t.Mark("documents + photo");
+        RaiseStatusChanged();
+    }
+
+    /// <summary>"Last changed by … on …" for the status bar, read from the audit log in the background.</summary>
+    private async Task ShowLastChangeAsync(Student? student)
+    {
+        _lastChange = "";
+        if (student is not { Id: not 0 }) return;
+        LastChange? change;
+        try
+        {
+            change = await Task.Run(() =>
+            {
+                using var db = Ctx.Config.CreateContext(Ctx.Session);
+                return db.LastChangeOf("Students", student.Id);
+            });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        {
+            return; // no audit log on this database, or no permission to read it
+        }
+        if (!ReferenceEquals(student, _current) || change is null) return;
+        _lastChange = $"Last changed by {change.ChangedBy} on {change.ChangedAt:dd/MM/yyyy} · audited";
         RaiseStatusChanged();
     }
 
@@ -553,6 +644,125 @@ public sealed class StudentsScreen : ScreenBase
         ShowDocuments(_current);
     }
 
+    // ----- Printing and export -----
+
+    private static string TextOf(List<(int? Value, string Text)> items, int? value) =>
+        value is null ? "" : items.FirstOrDefault(i => i.Value == value).Text ?? "";
+
+    /// <summary>The details a printout needs. The photo is the profile picture (read from the attachments folder).</summary>
+    private Printing.StudentPrint PrintInfo(Student s, bool withPhoto)
+    {
+        byte[]? photo = null;
+        if (withPhoto && s.Id != 0)
+        {
+            try
+            {
+                var docs = ReferenceEquals(s, _current) ? _documents : _store.List(s.Id);
+                var path = docs.FirstOrDefault(d => d.DocType == DocumentTypes.ProfilePicture)?.FilePath ?? s.PicturePath;
+                if (!string.IsNullOrWhiteSpace(path) && StudentDocumentStore.IsPicture(path)) photo = _store.ReadBytes(path);
+            }
+            catch (Microsoft.Data.SqlClient.SqlException) { } // printed without the photo
+        }
+        var school = s.ClassId is int c && _classSchool.TryGetValue(c, out var sc) && sc.Name.Length > 0 ? sc.Name : Printing.PrintKit.DefaultSchoolName;
+        return new Printing.StudentPrint(
+            s.Id, s.DsNo, s.Name ?? "", s.Sex == "FEMALE", s.FatherName ?? "", s.BirthDate, s.AdmissionDate,
+            TextOf(_classes, s.ClassId), TextOf(_sections, s.SectionId), school, s.LeavingDate, s.LeavingReason, s.Remarks,
+            TextOf(_bloodGroups, s.BloodGroupId), s.FamilyId, s.Family?.Mobile ?? s.WhatsApp, photo);
+    }
+
+    /// <summary>The school's address, phones and pictures from School information (the built-in logo if it cannot be read).</summary>
+    private Printing.SchoolPrint SchoolDetails()
+    {
+        try
+        {
+            using var db = Ctx.Config.CreateContext(Ctx.Session);
+            return Printing.SchoolPrint.From(db.Campuses.AsNoTracking().OrderBy(c => c.Id).FirstOrDefault());
+        }
+        catch (Microsoft.Data.SqlClient.SqlException) { return Printing.SchoolPrint.From(null); }
+    }
+
+    /// <summary>The selected student, or a message if there is none (or it is not saved yet).</summary>
+    private Student? StudentToPrint()
+    {
+        CommitEdits();
+        if (_current is { Id: not 0 } s) return s;
+        NotYet(_current is null ? "Select a student first." : "Save the new student first.");
+        return null;
+    }
+
+    private void PrintIdCards()
+    {
+        if (StudentToPrint() is not { } current) return;
+        var shown = _list?.Where(s => s.Id != 0).ToList() ?? [];
+        var students = new List<Student> { current };
+        if (shown.Count > 1)
+        {
+            var answer = KryptonMessageBox.Show(this,
+                $"Print ID cards for all {shown.Count} students in the list?\n\nYes: all {shown.Count} (ten to a page)\nNo: only {current.Name}",
+                "ID cards", KryptonMessageBoxButtons.YesNoCancel, KryptonMessageBoxIcon.Question);
+            if (answer == DialogResult.Cancel) return;
+            if (answer == DialogResult.Yes) students = shown;
+        }
+        UseWaitCursor = true;
+        List<Printing.StudentPrint> cards;
+        Printing.SchoolPrint school;
+        try { cards = students.Select(s => PrintInfo(s, withPhoto: true)).ToList(); school = SchoolDetails(); }
+        finally { UseWaitCursor = false; }
+        PrintPreviewForm.Show(this, () => Printing.IdCards.Create(cards, school), "ID cards",
+            cards.Count == 1 ? $"ID card {current.Id} {current.Name}" : $"ID cards ({cards.Count})");
+    }
+
+    private void PrintLeavingCertificate()
+    {
+        if (StudentToPrint() is not { } s) return;
+        if (s.OnRoll || s.LeavingDate is null)
+        {
+            NotYet("The leaving certificate is for students who have left: set Status to Left or Transfer, fill in the leaving date, and Save.");
+            return;
+        }
+        var (info, school) = (PrintInfo(s, withPhoto: false), SchoolDetails());
+        PrintPreviewForm.Show(this, () => Printing.Certificates.Leaving(info, school), "School leaving certificate", $"Leaving certificate {s.Id} {s.Name}");
+    }
+
+    private void PrintBonafideCertificate()
+    {
+        if (StudentToPrint() is not { } s) return;
+        if (!s.OnRoll)
+        {
+            NotYet("The bonafide certificate is for active students. This student's status is " + s.StatusChoice + ".");
+            return;
+        }
+        var (info, school) = (PrintInfo(s, withPhoto: false), SchoolDetails());
+        PrintPreviewForm.Show(this, () => Printing.Certificates.Bonafide(info, school), "Bonafide certificate", $"Bonafide certificate {s.Id} {s.Name}");
+    }
+
+    private void ExportExcel()
+    {
+        if (_list is null) return;
+        using var dialog = new SaveFileDialog { Filter = "Excel workbook (*.xlsx)|*.xlsx", FileName = $"Students {DateTime.Today:yyyy-MM-dd}.xlsx", AddExtension = true };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            Printing.ListExport.From(_grid, "Students").SaveExcel(dialog.FileName);
+        }
+        catch (IOException ex)
+        {
+            Program.ShowError("Could not save the Excel file. Is it open in Excel?", ex);
+            return;
+        }
+        if (KryptonMessageBox.Show(this, $"Saved {Path.GetFileName(dialog.FileName)}. Open it now?", "Excel",
+                KryptonMessageBoxButtons.YesNo, KryptonMessageBoxIcon.Information) == DialogResult.Yes)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
+    }
+
+    private void ExportPdf()
+    {
+        if (_list is null) return;
+        var title = "Students" + (_filterChip.Visible ? " · " + _filterChip.Text : "");
+        var export = Printing.ListExport.From(_grid, title);
+        PrintPreviewForm.Show(this, export.ToPdf, "Student list", $"Students {DateTime.Today:yyyy-MM-dd}");
+    }
+
     // ----- Records -----
 
     protected override void CommitPendingEdits() => CommitEdits();
@@ -683,7 +893,7 @@ public sealed class StudentsScreen : ScreenBase
         if (_current is null || _db is null || _list is null) return;
         if (!Ctx.Session.IsAdmin)
         {
-            KryptonMessageBox.Show(this, "Only an Admin can delete a student. To show that a student has left, untick \"Currently in school\" and fill in the leaving date.",
+            KryptonMessageBox.Show(this, "Only an Admin can delete a student. To show that a student has left, set Status to Left or Transfer and fill in the leaving date.",
                 "Students", KryptonMessageBoxButtons.OK, KryptonMessageBoxIcon.Information);
             return;
         }
@@ -701,7 +911,7 @@ public sealed class StudentsScreen : ScreenBase
     public override void ClearFilters()
     {
         _search.Text = "";
-        _classFilter.SelectedIndex = _sectionFilter.SelectedIndex = 0;
+        _schoolFilter.SelectedIndex = _classFilter.SelectedIndex = _sectionFilter.SelectedIndex = 0;
         _statusFilter.SelectedIndex = 2;
         _grid.ClearAllFilters();
     }

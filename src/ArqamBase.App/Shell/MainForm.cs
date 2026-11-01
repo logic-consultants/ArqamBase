@@ -33,6 +33,7 @@ public sealed class MainForm : KryptonForm
         });
 
         Text = "ArqamBase";
+        Icon = Program.AppIcon;
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(1400, 900);
         MinimumSize = new Size(900, 600);
@@ -202,6 +203,7 @@ public sealed class MainForm : KryptonForm
         exit.Click += (_, _) => Close();
         _ribbon.RibbonFileAppButton.AppButtonMenuItems.Add(exit);
         _ribbon.RibbonFileAppButton.AppButtonShowRecentDocs = false;
+        _ribbon.RibbonFileAppButton.AppButtonImage = new Icon(Program.AppIcon, 32, 32).ToBitmap();
         _ribbon.RibbonTabs.Add(Tab("Home",
             RecordsGroup(),
             SortFilterGroup(),

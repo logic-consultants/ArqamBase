@@ -41,6 +41,7 @@ public sealed class LoginForm : KryptonForm
         _config = config;
         _settings = settings;
         Text = "Sign in to ArqamBase";
+        Icon = Program.AppIcon;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;

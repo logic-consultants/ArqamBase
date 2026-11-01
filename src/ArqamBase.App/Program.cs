@@ -14,6 +14,7 @@ static class Program
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ShowError("Something went wrong", e.Exception);
 
+        Printing.PrintKit.Init();
         var config = AppConfig.Load();
         var settings = UserSettings.Load();
 
@@ -39,6 +40,9 @@ static class Program
         var startScreen = openIndex >= 0 && openIndex + 1 < args.Length ? args[openIndex + 1] : null;
         Application.Run(new MainForm(config, session, settings, startScreen));
     }
+
+    /// <summary>The DAR-E-ARQAM logo as the window and taskbar icon.</summary>
+    public static Icon AppIcon { get; } = new(typeof(Program).Assembly.GetManifestResourceStream("ArqamBase.app.ico")!);
 
     public static void ShowError(string message, Exception ex) =>
         KryptonMessageBox.Show($"{message}\n\n{ex.GetBaseException().Message}", "ArqamBase",

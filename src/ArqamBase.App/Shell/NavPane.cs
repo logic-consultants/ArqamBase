@@ -13,6 +13,7 @@ public sealed class NavPane : KryptonPanel
     private readonly KryptonButton _toggle = new() { Dock = DockStyle.Right, Width = 28, ButtonStyle = ButtonStyle.ButtonSpec, Text = "«" };
     private readonly KryptonTextBox _search = new() { Dock = DockStyle.Top, CueHint = { CueHintText = "Search screens" } };
     private readonly KryptonTreeView _tree = new() { Dock = DockStyle.Fill, ShowLines = false, ShowRootLines = false, FullRowSelect = true, HotTracking = true, ItemHeight = Theme.RowHeight };
+    private readonly KryptonPanel _searchHost = new() { Dock = DockStyle.Top, Height = 34, Padding = new Padding(8, 2, 8, 6) };
     private readonly ImageList _images = new() { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
     private int _expandedWidth;
     private string? _activeKey;
@@ -45,13 +46,14 @@ public sealed class NavPane : KryptonPanel
 
         _header.Controls.Add(_title);
         _header.Controls.Add(_toggle);
-        var searchHost = new KryptonPanel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(8, 2, 8, 6) };
+        var searchHost = _searchHost;
         searchHost.Controls.Add(_search);
         Controls.Add(_tree);
         Controls.Add(searchHost);
         Controls.Add(_header);
 
-        Theme.Changed += (_, _) => Fill();
+        Theme.Changed += (_, _) => { ApplyColours(); Fill(); };
+        ApplyColours();
         Fill();
     }
 
@@ -74,7 +76,11 @@ public sealed class NavPane : KryptonPanel
         _activeKey = key;
         foreach (TreeNode g in _tree.Nodes)
             foreach (TreeNode n in g.Nodes)
-                n.NodeFont = (string)n.Tag! == key ? new Font(_tree.Font, FontStyle.Bold) : null;
+            {
+                var active = (string)n.Tag! == key;
+                n.NodeFont = active ? new Font(_tree.Font, FontStyle.Bold) : null;
+                if (active) _tree.SelectedNode = n; // the open screen shows as the lighter band
+            }
     }
 
     public void FocusSearch()
@@ -100,14 +106,14 @@ public sealed class NavPane : KryptonPanel
             var items = group.Where(s => term.Length == 0 || s.Title.Contains(term, StringComparison.CurrentCultureIgnoreCase)).ToList();
             if (items.Count == 0) continue;
 
-            var gNode = new TreeNode(group.Key.ToUpperInvariant()) { ForeColor = Theme.Muted, ImageKey = "none", SelectedImageKey = "none" };
+            var gNode = new TreeNode(group.Key.ToUpperInvariant()) { ForeColor = Muted, ImageKey = "none", SelectedImageKey = "none" };
             foreach (var s in items)
             {
                 var imageKey = s.Glyph.ToString();
                 if (!_images.Images.ContainsKey(imageKey))
-                    _images.Images.Add(imageKey, Icons.Small(s.Glyph));
+                    _images.Images.Add(imageKey, Theme.ColouredNavigation ? Icons.Get(s.Glyph, 16, Theme.NavText) : Icons.Small(s.Glyph));
                 var text = s.Create is null ? $"{s.Title}  ·  phase {s.Phase}" : s.Title;
-                gNode.Nodes.Add(new TreeNode(text) { Tag = s.Key, ImageKey = imageKey, SelectedImageKey = imageKey, ForeColor = s.Create is null ? Theme.Muted : Color.Empty });
+                gNode.Nodes.Add(new TreeNode(text) { Tag = s.Key, ImageKey = imageKey, SelectedImageKey = imageKey, ForeColor = s.Create is null ? Muted : Color.Empty });
             }
             _tree.Nodes.Add(gNode);
         }
@@ -115,6 +121,42 @@ public sealed class NavPane : KryptonPanel
         _tree.ExpandAll();
         _tree.EndUpdate();
         SetActive(_activeKey);
+    }
+
+    private static Color Muted => Theme.ColouredNavigation ? Theme.NavMuted : Theme.Muted;
+
+    /// <summary>
+    /// Flat themes: the pane has the primary colour with white text and icons, and a lighter band for the open screen.
+    /// Classic 2007 Blue keeps the palette's own light pane.
+    /// </summary>
+    private void ApplyColours()
+    {
+        var on = Theme.ColouredNavigation;
+        var back = on ? Theme.NavBack : Color.Empty;
+        var text = on ? Theme.NavText : Color.Empty;
+        foreach (var panel in new[] { this, _header, _searchHost })
+        {
+            panel.StateCommon.ColorStyle = on ? PaletteColorStyle.Solid : PaletteColorStyle.Inherit;
+            panel.StateCommon.Color1 = panel.StateCommon.Color2 = back;
+        }
+        _title.StateCommon.ShortText.Color1 = text;
+        _toggle.StateCommon.Content.ShortText.Color1 = text;
+
+        _tree.StateCommon.Back.ColorStyle = on ? PaletteColorStyle.Solid : PaletteColorStyle.Inherit;
+        _tree.StateCommon.Back.Color1 = _tree.StateCommon.Back.Color2 = back;
+        _tree.StateCommon.Border.DrawBorders = on ? PaletteDrawBorders.None : PaletteDrawBorders.Inherit;
+        _tree.StateCommon.Node.Content.ShortText.Color1 = text;
+        void Node(PaletteTriple node, Color color)
+        {
+            node.Back.ColorStyle = on ? PaletteColorStyle.Solid : PaletteColorStyle.Inherit;
+            node.Back.Color1 = node.Back.Color2 = on ? color : Color.Empty;
+            node.Border.DrawBorders = on ? PaletteDrawBorders.None : PaletteDrawBorders.Inherit;
+            node.Content.ShortText.Color1 = text;
+        }
+        var hover = Theme.Mix(Theme.NavBack, Color.White, 0.12);
+        Node(_tree.StateTracking.Node, hover);
+        Node(_tree.StateCheckedNormal.Node, Theme.NavSelected);
+        Node(_tree.StateCheckedTracking.Node, Theme.NavSelected);
     }
 
     protected override void OnFontChanged(EventArgs e)

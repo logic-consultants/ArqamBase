@@ -23,6 +23,7 @@ public sealed class AddDocumentForm : KryptonForm
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
 
         var types = DocumentTypes.All.Select(t => new Inputs.Item<string>(t.Type, t.Label)).ToList();
         _type.DataSource = types;

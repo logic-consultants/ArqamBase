@@ -53,6 +53,7 @@ public sealed class MainForm : KryptonForm
         _tabs.Button.ContextButtonDisplay = ButtonDisplay.Hide;
         _tabs.CloseAction += OnTabClosing;
         _tabs.SelectedPageChanged += (_, _) => OnActiveScreenChanged();
+        StyleTabs();
 
         BuildRibbon();
         BuildStatusBar(config, session);
@@ -115,6 +116,7 @@ public sealed class MainForm : KryptonForm
         var page = new KryptonPage { Text = info.Title, TextTitle = info.Title, UniqueName = key, ImageSmall = Icons.Small(info.Glyph) };
         page.Controls.Add(screen);
         _tabs.Pages.Add(page);
+        Theme.FitButtons(page);
         t.Mark("pages.add");
         _tabs.SelectedPage = page;
         t.Mark("add tab (loads data)");
@@ -170,9 +172,37 @@ public sealed class MainForm : KryptonForm
             button.ImageSmall = Icons.Small(glyph);
         }
         foreach (var page in _tabs.Pages)
+        {
             if (ScreenCatalog.All.FirstOrDefault(s => s.Key == page.UniqueName) is { } info)
                 page.ImageSmall = Icons.Small(info.Glyph);
+            Theme.FitButtons(page);
+        }
+        StyleTabs();
         Refresh();
+    }
+
+    /// <summary>
+    /// Tab text is never bold (bold text did not fit the tab). In Light and Dark the tabs are flat: the selected tab
+    /// has the page colour and a hovered one the selection colour, instead of the palette's glossy gold.
+    /// </summary>
+    private void StyleTabs()
+    {
+        var font = Theme.BaseFont;
+        _tabs.StateCommon.Tab.Content.ShortText.Font = font;
+        _tabs.StateNormal.Tab.Content.ShortText.Font = font;
+        _tabs.StateTracking.Tab.Content.ShortText.Font = font;
+        _tabs.StatePressed.Tab.Content.ShortText.Font = font;
+        _tabs.StateSelected.Tab.Content.ShortText.Font = font;
+        var flat = !Theme.IsOffice2007;
+        void Set(PaletteBack back, PaletteContent content, Color color)
+        {
+            back.ColorStyle = flat ? PaletteColorStyle.Solid : PaletteColorStyle.Inherit;
+            back.Color1 = back.Color2 = flat ? color : Color.Empty;
+            content.ShortText.Color1 = flat ? Theme.Text : Color.Empty;
+        }
+        Set(_tabs.StateSelected.Tab.Back, _tabs.StateSelected.Tab.Content, Theme.CardBack);
+        Set(_tabs.StateTracking.Tab.Back, _tabs.StateTracking.Tab.Content, Theme.Selected);
+        Set(_tabs.StatePressed.Tab.Back, _tabs.StatePressed.Tab.Content, Theme.Selected);
     }
 
     /// <summary>Makes all text one point larger or smaller, within the allowed range.</summary>

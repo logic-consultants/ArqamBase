@@ -13,6 +13,9 @@ public static class NumberFormat
     /// <summary>CNIC and Form-B numbers as 33100-1001001-7.</summary>
     public static string Cnic(string? value) => Layout(value, "#####-#######-#");
 
+    /// <summary>Digits in a CNIC or Form-B number.</summary>
+    public const int FormBLength = 13;
+
     /// <summary>
     /// What is saved: the digits only, or null when the box is empty.
     /// Text that is not a number (e.g. "N/A" or a name) is kept as typed rather than lost.

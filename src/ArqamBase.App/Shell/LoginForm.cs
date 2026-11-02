@@ -18,7 +18,7 @@ public sealed class LoginForm : KryptonForm
     private readonly KryptonCheckBox _remember = new() { Text = "Remember on this computer", Checked = true, AutoSize = true };
     private readonly KryptonLabel _savedInfo = new() { AutoSize = true };
     private readonly KryptonLinkLabel _changeSql = new() { Text = "Use a different login", AutoSize = true };
-    private readonly KryptonLabel _error = new() { Text = "", AutoSize = true, MaximumSize = new Size(420, 0), StateCommon = { ShortText = { Color1 = Color.Firebrick } } };
+    private readonly KryptonLabel _error = new() { Text = "", AutoSize = true, MaximumSize = new Size(560, 0), StateCommon = { ShortText = { Color1 = Color.Firebrick } } };
     private readonly KryptonButton _signIn = new() { Text = "Sign in", Width = 100, Height = 30 };
     private readonly KryptonButton _cancel = new() { Text = "Cancel", Width = 100, Height = 30, DialogResult = DialogResult.Cancel };
     private readonly TableLayoutPanel _sqlFields = new() { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top, BackColor = Color.Transparent };
@@ -45,22 +45,27 @@ public sealed class LoginForm : KryptonForm
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
         AcceptButton = _signIn;
         CancelButton = _cancel;
 
-        var root = new TableLayoutPanel { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(20), BackColor = Color.Transparent };
+        // Two columns: a panel in the theme's primary colour with the logo, and the sign-in fields.
+        var root = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Color.Transparent, Margin = Padding.Empty };
         _root = root;
+        var fields = new TableLayoutPanel { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(20), BackColor = Color.Transparent, Margin = Padding.Empty };
+        root.Controls.Add(BrandPanel(), 0, 0);
+        root.Controls.Add(fields, 1, 0);
+        var formRoot = fields;
+        formRoot.Controls.Add(new KryptonLabel { Text = "Sign in", LabelStyle = LabelStyle.TitlePanel, AutoSize = true });
+        formRoot.Controls.Add(new KryptonLabel { Text = $"{config.Database} on {config.Server}", AutoSize = true, Padding = new Padding(0, 0, 0, 10), StateCommon = { ShortText = { Color1 = Theme.Muted } } });
 
-        root.Controls.Add(new KryptonLabel { Text = "ArqamBase", LabelStyle = LabelStyle.TitlePanel, AutoSize = true });
-        root.Controls.Add(new KryptonLabel { Text = $"{config.Database} on {config.Server}", AutoSize = true, Padding = new Padding(0, 0, 0, 10) });
-
-        var app = new KryptonGroupBox { Text = "1. Your ArqamBase account", Width = 440, Height = 110 };
+        var app = new KryptonGroupBox { Text = "1. Your ArqamBase account", Width = 580, Height = 110 };
         app.Panel.Controls.Add(Fields(("User name", _user), ("Password", _password)));
-        root.Controls.Add(app);
+        formRoot.Controls.Add(app);
 
         if (config.UsesWindowsLogin)
         {
-            var sql = new KryptonGroupBox { Text = $"2. Your Windows login on {config.ServerMachine} (for SQL Server)", Width = 440, Height = 150 };
+            var sql = new KryptonGroupBox { Text = $"2. Your Windows login on {config.ServerMachine} (for SQL Server)", Width = 580, Height = 150 };
             _sqlGroup = sql;
             var holder = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
             _sqlFields.Controls.Clear();
@@ -73,22 +78,23 @@ public sealed class LoginForm : KryptonForm
             holder.Controls.Add(_sqlFields);
             holder.Controls.Add(_sqlSaved);
             sql.Panel.Controls.Add(holder);
-            root.Controls.Add(sql);
+            formRoot.Controls.Add(sql);
             _sqlUser.CueHint.CueHintText = $"for example {config.ServerMachine}\\feeclerk1";
             _changeSql.LinkClicked += (_, _) => ShowSqlFields(true);
         }
 
-        root.Controls.Add(_error);
+        formRoot.Controls.Add(_error);
         var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(0, 8, 0, 0) };
         buttons.Controls.Add(_cancel);
         buttons.Controls.Add(_signIn);
-        root.Controls.Add(buttons);
+        formRoot.Controls.Add(buttons);
         Controls.Add(root);
         FitToContent();
 
         _user.Text = settings.LastUserName ?? "";
         _user.Leave += (_, _) => LoadSavedSqlLogin();
         _signIn.Click += (_, _) => TrySignIn();
+        Theme.MainButton(_signIn);
         Shown += (_, _) =>
         {
             LoadSavedSqlLogin();
@@ -104,6 +110,30 @@ public sealed class LoginForm : KryptonForm
         };
     }
 
+    /// <summary>The left panel: logo, app name and school, white on the theme's primary colour.</summary>
+    private static Panel BrandPanel()
+    {
+        var panel = new Panel { Width = 220, Dock = DockStyle.Fill, BackColor = Theme.Primary, Margin = Padding.Empty, Padding = new Padding(20) };
+        var logo = new PictureBox
+        {
+            Size = new Size(96, 112), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent,
+            Image = Image.FromStream(new MemoryStream(Printing.PrintKit.Logo)),
+        };
+        var name = new Label { Text = "ArqamBase", AutoSize = true, ForeColor = Color.White, BackColor = Color.Transparent, Font = Theme.Scaled(1.6f, FontStyle.Bold) };
+        var school = new Label { Text = "School management", AutoSize = true, ForeColor = Theme.Mix(Color.White, Theme.Primary, 0.25), BackColor = Color.Transparent, Font = Theme.Scaled(0.95f) };
+        panel.Controls.AddRange([logo, name, school]);
+        panel.Layout += (_, _) =>
+        {
+            // Centred as a block in the middle of the panel.
+            var height = logo.Height + 14 + name.Height + 2 + school.Height;
+            var top = Math.Max(20, (panel.Height - height) / 2);
+            logo.Location = new Point((panel.Width - logo.Width) / 2, top);
+            name.Location = new Point((panel.Width - name.Width) / 2, logo.Bottom + 14);
+            school.Location = new Point((panel.Width - school.Width) / 2, name.Bottom + 2);
+        };
+        return panel;
+    }
+
     private static TableLayoutPanel Fields(params (string Label, Control Box)[] rows)
     {
         var t = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, BackColor = Color.Transparent };
@@ -115,9 +145,9 @@ public sealed class LoginForm : KryptonForm
     private static void AddRow(TableLayoutPanel t, string label, Control box)
     {
         t.ColumnStyles.Clear();
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
         t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        box.Width = 290;
+        box.Width = 420;
         t.Controls.Add(new KryptonLabel { Text = label, AutoSize = true, Anchor = AnchorStyles.Left });
         t.Controls.Add(box);
     }

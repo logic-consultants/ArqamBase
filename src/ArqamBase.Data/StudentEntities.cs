@@ -41,6 +41,9 @@ public class Student : ISoftDelete
 
     // Shown in grids; not stored.
     public string? FatherName => Family?.FatherName;
+    public string? Mobile => Family?.Mobile;
+    public string? MotherMobile => Family?.MotherMobile;
+    public string? EmergencyNo => Family?.EmergencyNo;
     public string StatusText => OnRoll ? "Active" : string.IsNullOrWhiteSpace(LeavingType) ? "Not active" : LeavingType!;
 
     /// <summary>

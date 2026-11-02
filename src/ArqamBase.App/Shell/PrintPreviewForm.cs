@@ -23,6 +23,7 @@ public sealed class PrintPreviewForm : KryptonForm
         _fileName = string.Concat(fileName.Split(Path.GetInvalidFileNameChars()));
         Text = title;
         StartPosition = FormStartPosition.CenterParent;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
         Size = new Size(980, 900);
         MinimizeBox = false;
         ShowIcon = false;
@@ -57,12 +58,16 @@ public sealed class PrintPreviewForm : KryptonForm
         return b;
     }
 
-    /// <summary>Pages as wide as the window allows.</summary>
+    /// <summary>Pages as wide as the window allows, but a narrow page (an 80 mm receipt roll) no more than a little over its real size.</summary>
     private void FitPages()
     {
-        var width = Math.Max(200, _pages.ClientSize.Width - 40 - SystemInformation.VerticalScrollBarWidth);
+        var available = Math.Max(200, _pages.ClientSize.Width - 40 - SystemInformation.VerticalScrollBarWidth);
         foreach (PictureBox p in _pages.Controls)
-            if (p.Image is { } img) p.Size = new Size(width, width * img.Height / img.Width);
+            if (p.Image is { } img)
+            {
+                var width = Math.Min(available, img.Width * 3 / 2);
+                p.Size = new Size(width, width * img.Height / img.Width);
+            }
     }
 
     private void Print()
@@ -83,10 +88,13 @@ public sealed class PrintPreviewForm : KryptonForm
         var next = 0;
         printDoc.PrintPage += (_, e) =>
         {
-            // Draw over the whole sheet; the printer's unprintable edge is outside the page margins of the layout.
+            // Draw at the page's real size from the sheet's top left corner (the printer's unprintable edge is outside the
+            // layout's margins). An A4 page fills an A4 sheet; an 80 mm receipt prints at 80 mm on a roll.
             var page = pages[next++];
             var hard = e.PageSettings;
-            e.Graphics!.DrawImage(page, -hard.HardMarginX, -hard.HardMarginY, e.PageBounds.Width, e.PageBounds.Height);
+            var width = page.Width * 100f / PrintDpi; // hundredths of an inch
+            var height = page.Height * 100f / PrintDpi;
+            e.Graphics!.DrawImage(page, -hard.HardMarginX, -hard.HardMarginY, width, height);
             e.HasMorePages = next < pages.Count;
         };
         try { printDoc.Print(); }

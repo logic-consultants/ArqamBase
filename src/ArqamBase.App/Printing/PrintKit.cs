@@ -57,7 +57,7 @@ public static class PrintKit
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var fonts = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
-        foreach (var file in new[] { "arial.ttf", "arialbd.ttf", "ariali.ttf", "times.ttf", "timesbd.ttf", "timesi.ttf" })
+        foreach (var file in new[] { "arial.ttf", "arialbd.ttf", "ariali.ttf", "times.ttf", "timesbd.ttf", "timesi.ttf", "tahoma.ttf" })
         {
             var path = Path.Combine(fonts, file);
             if (!File.Exists(path)) continue;

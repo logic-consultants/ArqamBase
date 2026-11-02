@@ -117,6 +117,47 @@ public static class Inputs
     /// <summary>A CNIC or Form-B box: shows 33100-1001001-7, saves the digits only.</summary>
     public static KryptonTextBox Cnic(BindingSource bs, string property) => Number(bs, property, NumberFormat.Cnic);
 
+    /// <summary>
+    /// A Form-B box: takes digits only, at most 13, and puts in the dashes while typing (33100-1001001-7). Saves it as shown,
+    /// with dashes. A stored value that does not fit is shown as it is and left alone unless the user types in the box.
+    /// </summary>
+    public static KryptonTextBox FormB(BindingSource bs, string property)
+    {
+        var box = Text(bs, property);
+        box.MaxLength = NumberFormat.FormBLength + 2;
+        var b = box.DataBindings[nameof(box.Text)]!;
+        b.Format += (_, e) => e.Value = NumberFormat.Cnic(e.Value as string);
+        b.Parse += (_, e) =>
+        {
+            var text = (e.Value as string)?.Trim();
+            e.Value = string.IsNullOrEmpty(text) ? null : NumberFormat.Digits(text).Length == NumberFormat.FormBLength ? NumberFormat.Cnic(text) : text;
+        };
+        box.KeyPress += (_, e) =>
+        {
+            if (char.IsControl(e.KeyChar)) return;
+            var selected = NumberFormat.Digits(box.SelectedText).Length;
+            e.Handled = !char.IsDigit(e.KeyChar) || NumberFormat.Digits(box.Text).Length - selected >= NumberFormat.FormBLength;
+        };
+        var formatting = false;
+        box.TextChanged += (_, _) =>
+        {
+            if (formatting || !box.ContainsFocus) return; // only what the user types or pastes, not values being shown
+            var digitsBeforeCaret = NumberFormat.Digits(box.Text[..box.SelectionStart]).Length;
+            var digits = NumberFormat.Digits(box.Text);
+            if (digits.Length > NumberFormat.FormBLength) digits = digits[..NumberFormat.FormBLength];
+            var shown = NumberFormat.Cnic(digits);
+            if (shown == box.Text) return;
+            formatting = true;
+            box.Text = shown;
+            var caret = 0;
+            for (var seen = 0; caret < shown.Length && seen < digitsBeforeCaret; caret++)
+                if (char.IsDigit(shown[caret])) seen++;
+            box.SelectionStart = caret;
+            formatting = false;
+        };
+        return box;
+    }
+
     private static KryptonTextBox Number(BindingSource bs, string property, Func<string?, string> format)
     {
         var box = Text(bs, property);

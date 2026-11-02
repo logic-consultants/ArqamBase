@@ -14,7 +14,7 @@ Optional: `ArqamBase.exe --open setuplists` opens a screen at start (keys are in
 
 - `ArqamBase.App/appsettings.json` holds the connection string. It uses Windows sign-in (`Trusted_Connection=True`) to `ArqamBase_dev` on DAS-SVR.
 - The environment variable `ARQAMBASE_CONNECTION` replaces it, for example to test with a SQL login. Never put passwords in `appsettings.json`.
-- Student pictures and documents are saved in `StudentAttachmentsFolder` (default `\\das-svr\arqambase\StudentsAttachments`), named `[CC]_[Name]_[Type]`, and listed in `tblStudentDocuments` (run `sql/student_documents_install.sql`). `ARQAMBASE_ATTACHMENTS` replaces the folder for testing. Each user's DAS-SVR Windows account needs Modify rights on that folder.
+- Student pictures and documents are saved in `StudentAttachmentsFolder` (default `\\das-svr\db_share\arqambase\StudentsAttachments`), named `[CC]_[Name]_[Type]`, and listed in `tblStudentDocuments` (run `sql/student_documents_install.sql`). `ARQAMBASE_ATTACHMENTS` replaces the folder for testing. Each user's DAS-SVR Windows account needs Modify rights on that folder.
 - Before first use on a database, run `sql/app_users_install.sql` (creates `AppUsers`).
 
 ## Sign-in (two levels)

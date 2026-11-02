@@ -19,7 +19,7 @@ public sealed class SettingsScreen : ScreenBase
 
         var appearance = new KryptonGroupBox { Text = "Appearance", Width = 560, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         var inner = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent, Padding = new Padding(6) };
-        foreach (var choice in Enum.GetValues<ThemeChoice>())
+        foreach (var choice in Theme.Choices)
         {
             var rb = new KryptonRadioButton { Text = Theme.Label(choice), AutoSize = true, Checked = ctx.Settings.Theme == choice };
             rb.CheckedChanged += (_, _) => { if (rb.Checked) { ctx.Settings.Theme = choice; Persist(); ctx.ApplyTheme(); } };

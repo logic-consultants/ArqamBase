@@ -19,10 +19,9 @@ public static class ScreenCatalog
         new("promotion", "Promotion", "Students", Icons.Up, 6, "frmClassPromote"),
 
         new("ledger", "Fee ledger", "Fees", Icons.Ledger, 3, "Ledger", c => new FeeLedgerScreen(c)),
-        new("newfee", "New fee", "Fees", Icons.Add, 3, "frmNewFee"),
-        new("periodicfee", "Periodic fee update", "Fees", Icons.Refresh, 3, "Feeupdate"),
-        new("feedef", "Fee definition", "Fees", Icons.Money, 3, "frmFeeDefinition, frmClassFeeIncrease"),
-        new("challans", "Print challans", "Fees", Icons.Print, 3, "frmPrintChallanClasewise"),
+        new("periodicfee", "Periodic fee update", "Fees", Icons.Refresh, 3, "Feeupdate", c => new PeriodicFeeScreen(c)),
+        new("feedef", "Fee definition", "Fees", Icons.Money, 3, "frmFeeDefinition, frmClassFeeIncrease", c => new FeeDefinitionScreen(c)),
+        new("challans", "Print challans", "Fees", Icons.Print, 3, "frmPrintChallanClasewise", c => new PrintChallansScreen(c)),
 
         new("attendance", "Mark attendance", "Attendance", Icons.Check, 6, "frmClassAttendance"),
         new("holidays", "Holidays", "Attendance", Icons.Calendar, 1, Create: c => new SetupListsScreen(c, "Holidays")),

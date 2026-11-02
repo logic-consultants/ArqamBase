@@ -21,6 +21,9 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<Campus> Campuses => Set<Campus>();
     public DbSet<FeeChallan> FeeChallans => Set<FeeChallan>();
     public DbSet<CollectionType> CollectionTypes => Set<CollectionType>();
+    public DbSet<FeeReceiptFile> FeeReceiptFiles => Set<FeeReceiptFile>();
+    public DbSet<FeeDefinition> FeeDefinitions => Set<FeeDefinition>();
+    public DbSet<FeeIncrease> FeeIncreases => Set<FeeIncrease>();
 
     /// <summary>
     /// Fee owed per student (CC → amount): the total of the student's unpaid challans in Feerecipt, as the Access ledger's "Unpaid TOTAL".
@@ -199,6 +202,9 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.WhatsApp).HasMaxLength(255);
             e.Property(x => x.Remarks).HasMaxLength(255);
             e.Ignore(x => x.FatherName);
+            e.Ignore(x => x.Mobile);
+            e.Ignore(x => x.MotherMobile);
+            e.Ignore(x => x.EmergencyNo);
             e.Ignore(x => x.StatusText);
             e.Ignore(x => x.StatusChoice);
             e.HasOne(x => x.Family).WithMany(f => f.Students).HasForeignKey(x => x.FamilyId).IsRequired(false);
@@ -308,8 +314,34 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Remarks).HasMaxLength(255);
             e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
             e.Ignore(x => x.Total);
-            e.Ignore(x => x.PeriodText);
             MapSoftDelete(e);
+        });
+
+        b.Entity<FeeDefinition>(e =>
+        {
+            e.ToTable("FeeDefinitation", t => t.HasTrigger("trg_Audit_FeeDefinitation"));
+            e.Property(x => x.Id).HasColumnName("FeeDefId");
+            e.Property(x => x.StudentId).HasColumnName("FK_CC");
+            e.Property(x => x.DsNo).HasColumnName("DS#");
+            e.Property(x => x.RegistrationFee).HasColumnName("MiscFee");
+            e.Property(x => x.ProspectusFee).HasColumnName("LabFee");
+            e.Property(x => x.AcFee).HasColumnName("ParkingFee");
+            e.Property(x => x.CreatedDate).HasColumnType("date");
+            e.Property(x => x.RevisionDate).HasColumnType("date");
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            MapSoftDelete(e);
+        });
+
+        b.Entity<FeeIncrease>(e =>
+        {
+            e.ToTable("tblFeeUpdateList");
+            e.Property(x => x.Id).HasColumnName("ID");
+            e.Property(x => x.StudentId).HasColumnName("CC");
+            e.Property(x => x.CurrentFee).HasColumnType("money");
+            e.Property(x => x.IncreasedAmount).HasColumnType("money");
+            e.Property(x => x.NewFee).HasColumnType("money");
+            e.Property(x => x.UpdatedOn).HasColumnType("datetime");
+            e.Property(x => x.Reason).HasColumnName("ReasonUpdate").HasMaxLength(255);
         });
 
         b.Entity<CollectionType>(e =>
@@ -319,6 +351,20 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Name).HasColumnName("CollectionType");
             e.Property(x => x.Code).HasColumnName("Rem");
             e.Property(x => x.Active).HasColumnName("Status");
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            MapSoftDelete(e);
+        });
+
+        b.Entity<FeeReceiptFile>(e =>
+        {
+            e.ToTable("tblFeeReceiptFiles");
+            e.Property(x => x.Id).HasColumnName("FileID");
+            e.Property(x => x.CollectionTypeId).HasColumnName("CollectionType");
+            e.Property(x => x.ReceivedOn).HasColumnType("date");
+            e.Property(x => x.FilePath).HasMaxLength(400);
+            e.Property(x => x.OriginalFileName).HasMaxLength(260);
+            e.Property(x => x.CreatedBy).HasMaxLength(50);
+            e.Property(x => x.DeletedBy).HasMaxLength(50);
             e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
             MapSoftDelete(e);
         });

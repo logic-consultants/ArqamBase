@@ -18,6 +18,7 @@ public sealed class SetPasswordForm : KryptonForm
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
         var t = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(20), BackColor = Color.Transparent };
         var intro = new KryptonLabel { Text = "This is a temporary password. The user chooses their own when they next sign in.", AutoSize = true, MaximumSize = new Size(380, 0) };
         t.Controls.Add(intro);

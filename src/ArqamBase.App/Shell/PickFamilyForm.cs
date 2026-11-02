@@ -23,6 +23,7 @@ public sealed class PickFamilyForm : KryptonForm
         _families = families;
         Text = title;
         StartPosition = FormStartPosition.CenterParent;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
         Size = new Size(620, 520);
         MinimizeBox = false;
 

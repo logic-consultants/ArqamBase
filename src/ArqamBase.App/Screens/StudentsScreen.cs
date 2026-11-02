@@ -160,7 +160,7 @@ public sealed class StudentsScreen : ScreenBase
         f.Add("Sex", Inputs.Combo<string>(_bs, nameof(Student.Sex), [(null, ""), ("MALE", "Male"), ("FEMALE", "Female")]));
         f.Add("Birth date", Inputs.Date(_bs, nameof(Student.BirthDate)));
         f.Add("Birth place", Inputs.Text(_bs, nameof(Student.BirthPlace)));
-        f.Add("Form-B no.", Inputs.Cnic(_bs, nameof(Student.FormB)));
+        f.Add("Form-B no.", Inputs.FormB(_bs, nameof(Student.FormB)));
         f.Add("Admission date", Inputs.Date(_bs, nameof(Student.AdmissionDate)));
         f.Add("Admission class", Inputs.Text(_bs, nameof(Student.AdmissionClass)));
         _classCombo = f.Add("Current class", Inputs.Combo(_bs, nameof(Student.ClassId), _classes));
@@ -338,7 +338,11 @@ public sealed class StudentsScreen : ScreenBase
             _grid.AddText(nameof(Student.StatusText), "Status", 90);
             _grid.AddText(nameof(Student.AdmissionDate), "Admitted", 95, format: "dd/MM/yyyy");
             _grid.AddText(nameof(Student.WhatsApp), "WhatsApp", 130);
-            _grid.FormatNumbers(nameof(Student.WhatsApp), NumberFormat.Phone);
+            _grid.AddText(nameof(Student.Mobile), "Mobile", 130);
+            _grid.AddText(nameof(Student.MotherMobile), "MCell", 130);
+            _grid.AddText(nameof(Student.EmergencyNo), "Emergency no.", 130);
+            foreach (var number in new[] { nameof(Student.WhatsApp), nameof(Student.Mobile), nameof(Student.MotherMobile), nameof(Student.EmergencyNo) })
+                _grid.FormatNumbers(number, NumberFormat.Phone);
             foreach (DataGridViewColumn c in _grid.Columns)
                 if (c is DataGridViewComboBoxColumn combo) combo.DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing;
 
@@ -821,7 +825,7 @@ public sealed class StudentsScreen : ScreenBase
             string.IsNullOrWhiteSpace(s.Name) ? $"CC {(s.Id == 0 ? "(new)" : s.Id)} needs a name."
             : s.Family is null && s.FamilyId is null ? $"{s.Name} needs a family."
             : s.ClassId is null && s.OnRoll ? $"{s.Name} needs a class."
-            : null).FirstOrDefault(p => p is not null);
+            : null).FirstOrDefault(p => p is not null) ?? FormBProblem();
         if (problem is not null)
         {
             KryptonMessageBox.Show(this, problem, "Students", KryptonMessageBoxButtons.OK, KryptonMessageBoxIcon.Warning);
@@ -853,6 +857,39 @@ public sealed class StudentsScreen : ScreenBase
             Program.ShowError("Could not save.", ex);
             return false;
         }
+    }
+
+    /// <summary>
+    /// A Form-B number that was typed or changed must be blank or 13 digits, and no other student may have it.
+    /// Numbers already stored are not checked unless they are changed.
+    /// </summary>
+    private string? FormBProblem()
+    {
+        var typed = _db!.ChangeTracker.Entries<Student>()
+            .Where(e => e.State == EntityState.Added && !string.IsNullOrWhiteSpace(e.Entity.FormB)
+                        || e.State == EntityState.Modified && e.Property(s => s.FormB).IsModified)
+            .Select(e => e.Entity).Where(s => !string.IsNullOrWhiteSpace(s.FormB)).ToList();
+        if (typed.Count == 0) return null;
+        foreach (var s in typed)
+        {
+            var digits = NumberFormat.Digits(s.FormB);
+            if (digits.Length != NumberFormat.FormBLength || s.FormB!.Any(c => !char.IsDigit(c) && c != '-'))
+                return $"{s.Name}'s Form-B no. must be {NumberFormat.FormBLength} digits (like 12345-1234567-0), or left blank.";
+        }
+        // Few students have a Form-B number, so they are compared here by their digits (stored with or without dashes).
+        var ids = typed.Select(s => s.Id).ToList();
+        var stored = _db.Students.AsNoTracking().Where(s => s.FormB != null && s.FormB != "" && !ids.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name, s.FormB }).ToList();
+        foreach (var s in typed)
+        {
+            var digits = NumberFormat.Digits(s.FormB);
+            var (otherId, otherName) = stored.Where(o => NumberFormat.Digits(o.FormB) == digits).Select(o => (o.Id, o.Name)).FirstOrDefault();
+            if (otherName is null)
+                (otherId, otherName) = typed.Where(o => !ReferenceEquals(o, s) && NumberFormat.Digits(o.FormB) == digits).Select(o => (o.Id, o.Name)).FirstOrDefault();
+            if (otherName is not null || otherId != 0)
+                return $"Form-B no. {NumberFormat.Cnic(digits)} is already given to {otherName}{(otherId == 0 ? "" : $" (CC {otherId})")}. Each child's Form-B no. is different.";
+        }
+        return null;
     }
 
     private void RenameDocuments(List<Student> students)

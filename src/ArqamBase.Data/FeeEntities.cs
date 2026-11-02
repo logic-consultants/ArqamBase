@@ -39,21 +39,68 @@ public class FeeChallan : ISoftDelete
 
     /// <summary>Everything charged on the challan.</summary>
     public int Total => (TuitionFee ?? 0) + (ExamsFee ?? 0) + (RegistrationFee ?? 0) + (AdmissionFee ?? 0) + (ProspectusFee ?? 0) + (Fine ?? 0) + (Other ?? 0);
+}
 
-    /// <summary>The period as "Oct 2026" when it is written like "OCT/26" or "NOV-26"; otherwise as saved.</summary>
-    public string PeriodText
-    {
-        get
-        {
-            var p = Period?.Trim() ?? "";
-            var parts = p.Split('/', '-', ' ');
-            if (parts.Length == 2 && parts[0].Length >= 3 && int.TryParse(parts[1], out var year)
-                && DateTime.TryParseExact(parts[0][..3], "MMM", System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None, out var month))
-                return $"{month:MMM} {(year < 100 ? 2000 + year : year)}";
-            return p;
-        }
-    }
+/// <summary>
+/// What a student is charged (table FeeDefinitation). The periodic fee update copies it onto each month's challan:
+/// tuition → Tuition, exams → Exams/AF, misc → Registration, lab → Prospectus, other → Other.
+/// A/C (parking) and admission fees are not charged monthly. If a student has more than one, the newest counts.
+/// </summary>
+public class FeeDefinition : ISoftDelete
+{
+    public int Id { get; set; }
+    public int? StudentId { get; set; }
+    public int? DsNo { get; set; }
+    public int? TuitionFee { get; set; }
+    public int? ExamsFee { get; set; }
+    /// <summary>Column MiscFee; charged as Registration.</summary>
+    public int? RegistrationFee { get; set; }
+    /// <summary>Column LabFee; charged as Prospectus.</summary>
+    public int? ProspectusFee { get; set; }
+    /// <summary>A/C charges (column ParkingFee).</summary>
+    public int? AcFee { get; set; }
+    public int? Other { get; set; }
+    public int? AdmissionFee { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public DateTime? RevisionDate { get; set; }
+    public int? RevisionNo { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? CreatedOn { get; set; }
+    public DateTime? DeletedOn { get; set; }
+    public byte[]? RowVersion { get; set; }
+}
+
+/// <summary>A monthly fee increase of one student (table tblFeeUpdateList).</summary>
+public class FeeIncrease
+{
+    public int Id { get; set; }
+    public int? StudentId { get; set; }
+    public decimal? CurrentFee { get; set; }
+    public decimal? IncreasedAmount { get; set; }
+    public decimal? NewFee { get; set; }
+    public DateTime? UpdatedOn { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// The bank or online deposit slip of a receipt (table tblFeeReceiptFiles), for Online Deposit Girls / Boys.
+/// A receipt is known by its collection type, receipt number and date; the file is in the FeeReceipts folder of the shared attachments folder.
+/// </summary>
+public class FeeReceiptFile : ISoftDelete
+{
+    public int Id { get; set; }
+    public int CollectionTypeId { get; set; }
+    public int ReceiptNo { get; set; }
+    public DateTime ReceivedOn { get; set; }
+    public string FilePath { get; set; } = "";
+    public string? OriginalFileName { get; set; }
+    public int? FileSizeKB { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? DeletedBy { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? CreatedOn { get; set; }
+    public DateTime? DeletedOn { get; set; }
+    public byte[]? RowVersion { get; set; }
 }
 
 /// <summary>How a fee was collected (table tblCollectionTypes), e.g. Cash Receipt Girls, Online Deposit Boys.</summary>

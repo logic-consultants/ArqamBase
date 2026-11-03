@@ -14,4 +14,5 @@ IF USER_ID(N'DAS-SVR\Abid') IS NULL
 ALTER ROLE db_datareader ADD MEMBER [DAS-SVR\Abid];
 ALTER ROLE db_datawriter ADD MEMBER [DAS-SVR\Abid];
 GO
-/* Then in the app: Setup lists > Users & roles, add their ArqamBase user name and role, and press Set password. */
+/* Then in the app: Setup lists > Users & roles, add their ArqamBase user name and role, and press Set password.
+   For a Coordinator or Teacher in charge, save, then press Assign classes to tick their departments or class and section. */

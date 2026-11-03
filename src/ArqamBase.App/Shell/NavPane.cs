@@ -23,8 +23,11 @@ public sealed class NavPane : KryptonPanel
 
     public bool Collapsed { get; private set; }
 
-    public NavPane(int width)
+    private readonly IReadOnlyList<ScreenInfo> _screens;
+
+    public NavPane(int width, IReadOnlyList<ScreenInfo> screens)
     {
+        _screens = screens;
         _expandedWidth = Math.Max(180, width);
         Width = _expandedWidth;
         Dock = DockStyle.Left;
@@ -101,7 +104,7 @@ public sealed class NavPane : KryptonPanel
         _tree.BeginUpdate();
         _tree.Nodes.Clear();
         var term = _search.Text.Trim();
-        foreach (var group in ScreenCatalog.All.GroupBy(s => s.Group))
+        foreach (var group in _screens.GroupBy(s => s.Group))
         {
             var items = group.Where(s => term.Length == 0 || s.Title.Contains(term, StringComparison.CurrentCultureIgnoreCase)).ToList();
             if (items.Count == 0) continue;

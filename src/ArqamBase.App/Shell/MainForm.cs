@@ -42,7 +42,7 @@ public sealed class MainForm : KryptonForm
         Theme.Apply(_manager, settings);
         Font = Theme.BaseFont;
 
-        _nav = new NavPane(settings.NavigationPaneWidth);
+        _nav = new NavPane(settings.NavigationPaneWidth, ScreenCatalog.For(session).ToList());
         _nav.ScreenSelected += OpenScreen;
         _nav.SetCollapsed(!settings.NavigationPaneOpen);
 
@@ -76,7 +76,7 @@ public sealed class MainForm : KryptonForm
         Shown += (_, _) =>
         {
             OpenScreen("dashboard");
-            if (startScreen is not null && ScreenCatalog.All.Any(s => s.Key == startScreen))
+            if (startScreen is not null && ScreenCatalog.For(session).Any(s => s.Key == startScreen))
                 OpenScreen(startScreen);
             if (session.CreatedFirstAdmin)
                 KryptonMessageBox.Show($"Welcome. Your Admin account \"{session.UserName}\" is created.\n\nAdd other people in Setup lists > Users & roles.",
@@ -98,6 +98,7 @@ public sealed class MainForm : KryptonForm
         }
 
         var info = ScreenCatalog.Get(key);
+        if (!ScreenCatalog.For(_ctx.Session).Contains(info)) return; // not for this role
         var t = Timing.Step($"OpenScreen {key}");
         ScreenBase screen;
         try
@@ -242,7 +243,7 @@ public sealed class MainForm : KryptonForm
             Group("View", Btn("Navigation pane", Icons.Menu, () => _nav.SetCollapsed(!_nav.Collapsed)), Btn("Theme", Icons.ThemeIcon, () => OpenScreen("settings")),
                 Btn("Larger text", Icons.FontBigger, () => ChangeFontSize(+1)), Btn("Smaller text", Icons.FontSmaller, () => ChangeFontSize(-1)))));
 
-        foreach (var group in ScreenCatalog.All.Where(s => s.Group != "Home").GroupBy(s => s.Group))
+        foreach (var group in ScreenCatalog.For(_ctx.Session).Where(s => s.Group != "Home").GroupBy(s => s.Group))
         {
             var tabName = group.Key == "Staff & salaries" ? "Staff" : group.Key;
             var screens = Group(group.Key == "Staff & salaries" ? "Staff" : "Screens",

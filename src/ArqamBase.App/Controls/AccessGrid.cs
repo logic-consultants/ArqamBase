@@ -242,6 +242,8 @@ public class AccessGrid : KryptonDataGridView
 
         var col = Columns[columnIndex];
         var prop = col.DataPropertyName;
+        if (prop.Length == 0)
+            return; // an unbound column, e.g. a blank one to write in on the printout
         var menu = new FilterMenu(col.HeaderText, list.DistinctValues(prop), list.HasFilter(prop));
         menu.SortRequested += dir => { list.Sort(prop, dir); col.HeaderCell.SortGlyphDirection = dir == ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending; };
         menu.ClearRequested += () => { list.ClearFilter(prop); OnFilterChanged(); };
@@ -251,7 +253,7 @@ public class AccessGrid : KryptonDataGridView
 
     public void SortSelectedColumn(ListSortDirection dir)
     {
-        if (CurrentCell is null || FilterList is null)
+        if (CurrentCell is null || FilterList is null || Columns[CurrentCell.ColumnIndex].DataPropertyName.Length == 0)
             return;
         var col = Columns[CurrentCell.ColumnIndex];
         FilterList.Sort(col.DataPropertyName, dir);

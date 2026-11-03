@@ -23,7 +23,8 @@ public static class ScreenCatalog
         new("feedef", "Fee definition", "Fees", Icons.Money, 3, "frmFeeDefinition, frmClassFeeIncrease", c => new FeeDefinitionScreen(c)),
         new("challans", "Print challans", "Fees", Icons.Print, 3, "frmPrintChallanClasewise", c => new PrintChallansScreen(c)),
 
-        new("attendance", "Mark attendance", "Attendance", Icons.Check, 6, "frmClassAttendance"),
+        new("attendance", "Mark attendance", "Attendance", Icons.Check, 6, "frmClassAttendance", c => new AttendanceScreen(c)),
+        new("staffattendance", "Staff attendance", "Attendance", Icons.IdCard, 6, Create: c => new StaffAttendanceScreen(c)),
         new("holidays", "Holidays", "Attendance", Icons.Calendar, 1, Create: c => new SetupListsScreen(c, "Holidays")),
 
         new("staff", "Staff", "Staff & salaries", Icons.IdCard, 6, "frmStaff"),
@@ -36,7 +37,7 @@ public static class ScreenCatalog
 
         new("messages", "WhatsApp, SMS & email", "Messages", Icons.Chat, 5, "frmUnpaidWhatsApp, frmWhatsAppsend"),
 
-        new("reports", "Reports centre", "Reports", Icons.Chart, 4, "the Access reports"),
+        new("reports", "Reports centre", "Reports", Icons.Chart, 4, "the Access reports", c => new ReportsScreen(c)),
 
         new("setuplists", "Setup lists", "Setup", Icons.Grid, 1, Create: c => new SetupListsScreen(c)),
         new("schoolinfo", "School information", "Setup", Icons.School, 2, "CampusInfo", c => new SchoolInfoScreen(c)),
@@ -44,6 +45,28 @@ public static class ScreenCatalog
     ];
 
     public static ScreenInfo Get(string key) => All.First(s => s.Key == key);
+
+    /// <summary>The screens this user sees in the navigation pane, ribbon and dashboard.</summary>
+    public static IEnumerable<ScreenInfo> For(UserSession session) => All.Where(s => Area(s) is not { } area || session.CanView(area));
+
+    /// <summary>The area a screen belongs to; none for the dashboard and Settings, which everyone has.</summary>
+    private static AppArea? Area(ScreenInfo s) => s.Key switch
+    {
+        "dashboard" or "settings" => null,
+        "holidays" => AppArea.Setup,
+        "staffattendance" => AppArea.Staff,
+        _ => s.Group switch
+        {
+            "Students" => AppArea.Students,
+            "Fees" => AppArea.Fees,
+            "Attendance" => AppArea.Attendance,
+            "Staff & salaries" => AppArea.Staff,
+            "Accounts" => AppArea.Accounts,
+            "Messages" => AppArea.Messages,
+            "Reports" => AppArea.Reports,
+            _ => AppArea.Setup,
+        },
+    };
 
     public static ScreenBase CreateScreen(ScreenInfo info, ScreenContext ctx) =>
         info.Create?.Invoke(ctx) ?? new ComingSoonScreen(ctx, info.Title, info.Phase, info.Replaces);

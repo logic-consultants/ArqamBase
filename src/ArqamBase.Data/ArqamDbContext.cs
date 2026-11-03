@@ -24,6 +24,12 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<FeeReceiptFile> FeeReceiptFiles => Set<FeeReceiptFile>();
     public DbSet<FeeDefinition> FeeDefinitions => Set<FeeDefinition>();
     public DbSet<FeeIncrease> FeeIncreases => Set<FeeIncrease>();
+    public DbSet<AttendanceRegister> AttendanceRegisters => Set<AttendanceRegister>();
+    public DbSet<StudentAttendance> StudentAttendance => Set<StudentAttendance>();
+    public DbSet<StaffMember> Staff => Set<StaffMember>();
+    public DbSet<StaffType> StaffTypes => Set<StaffType>();
+    public DbSet<StaffAttendance> StaffAttendance => Set<StaffAttendance>();
+    public DbSet<UserScope> UserScopes => Set<UserScope>();
 
     /// <summary>
     /// Fee owed per student (CC → amount): the total of the student's unpaid challans in Feerecipt, as the Access ledger's "Unpaid TOTAL".
@@ -142,6 +148,74 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.HasKey(x => x.Code);
             e.Property(x => x.Code).HasColumnName("StatusCode").HasColumnType("char(1)");
             e.Property(x => x.Name).HasColumnName("StatusName").HasMaxLength(30);
+        });
+
+        b.Entity<AttendanceRegister>(e =>
+        {
+            e.ToTable("tblAttendanceRegister", t => t.HasTrigger("trg_Audit_tblAttendanceRegister"));
+            e.Property(x => x.Id).HasColumnName("RegisterID");
+            e.Property(x => x.Date).HasColumnName("AttDate").HasColumnType("date");
+            e.Property(x => x.TakenBy).HasMaxLength(128);
+            e.Property(x => x.TakenOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.Remarks).HasMaxLength(500);
+            e.HasIndex(x => new { x.Date, x.ClassId, x.SectionId }).IsUnique();
+            e.HasMany(x => x.Marks).WithOne().HasForeignKey(x => x.RegisterId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<StudentAttendance>(e =>
+        {
+            e.ToTable("tblStudentAttendance", t => t.HasTrigger("trg_Audit_tblStudentAttendance"));
+            e.Property(x => x.Id).HasColumnName("AttendanceID");
+            e.Property(x => x.StudentId).HasColumnName("CC");
+            e.Property(x => x.Status).HasColumnName("StatusCode").HasColumnType("char(1)");
+            e.Property(x => x.Remarks).HasMaxLength(500);
+        });
+
+        b.Entity<StaffMember>(e =>
+        {
+            e.ToTable("Staff", t => t.HasTrigger("trg_Audit_Staff"));
+            e.Property(x => x.Id).HasColumnName("TeachersID");
+            e.Property(x => x.Name).HasColumnName("FirstName").HasMaxLength(100);
+            e.Property(x => x.FatherName).HasMaxLength(100);
+            e.Property(x => x.TypeId).HasColumnName("Type");
+            e.Property(x => x.Designation).HasMaxLength(100);
+            e.Property(x => x.CellNo).HasMaxLength(36);
+            e.Property(x => x.LeftOn).HasColumnName("SLDate");
+            MapSoftDelete(e);
+        });
+
+        b.Entity<StaffType>(e =>
+        {
+            e.ToTable("StaffTypes");
+            e.Property(x => x.Id).HasColumnName("ID");
+            e.Property(x => x.Kind).HasColumnName("Type");
+            e.Property(x => x.Name).HasColumnName("Detail");
+            MapSoftDelete(e);
+        });
+
+        b.Entity<StaffAttendance>(e =>
+        {
+            e.ToTable("tblStaffAttendance");
+            e.Property(x => x.Id).HasColumnName("StaffAttendanceID");
+            e.Property(x => x.Date).HasColumnName("AttDate").HasColumnType("date");
+            e.Property(x => x.StaffId).HasColumnName("TeachersID");
+            e.Property(x => x.Status).HasColumnName("StatusCode").HasColumnType("char(1)");
+            e.Property(x => x.TimeIn).HasColumnType("time(0)");
+            e.Property(x => x.TimeOut).HasColumnType("time(0)");
+            e.Property(x => x.Remarks).HasMaxLength(500);
+            e.Property(x => x.TakenBy).HasMaxLength(128);
+            e.Property(x => x.TakenOn).HasColumnType("datetime2(0)");
+            e.HasIndex(x => new { x.Date, x.StaffId }).IsUnique();
+        });
+
+        b.Entity<UserScope>(e =>
+        {
+            e.ToTable("tblUserScope");
+            e.Property(x => x.Id).HasColumnName("ScopeID");
+            e.Property(x => x.UserName).HasMaxLength(50);
+            e.Property(x => x.DepartmentId).HasColumnName("DepartmentID");
+            e.Property(x => x.ClassId).HasColumnName("ClassID");
+            e.Property(x => x.SectionId).HasColumnName("SectionID");
         });
 
         b.Entity<CalendarDay>(e =>

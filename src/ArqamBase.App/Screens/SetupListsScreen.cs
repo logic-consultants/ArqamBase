@@ -26,7 +26,7 @@ public sealed class SetupListsScreen : ScreenBase
     public SetupListsScreen(ScreenContext ctx, string? startList = null) : base(ctx)
     {
         _canEdit = ctx.Session.CanEdit(AppArea.Setup);
-        _editors = ListEditor.All(ctx.Session);
+        _editors = ListEditor.All(ctx.Session, ctx.Config);
 
         foreach (var e in _editors)
             _lists.Items.Add(e.Title);
@@ -208,11 +208,11 @@ public abstract class ListEditor
     /// <summary>Extra buttons shown beside Save while this list is open.</summary>
     public virtual IReadOnlyList<(string Text, Action<AccessGrid, IWin32Window> Run)> Actions => [];
 
-    public static List<ListEditor> All(UserSession session)
+    public static List<ListEditor> All(UserSession session, AppConfig config)
     {
         List<ListEditor> lists = [new ClassesEditor(), new SectionsEditor(), new DepartmentsEditor(), new SchoolsEditor(), new ConversationTypesEditor()];
         if (session.IsAdmin)
-            lists.Add(new UsersEditor(session));
+            lists.Add(new UsersEditor(session, config));
         lists.AddRange([new AttendanceStatusEditor(), new HolidaysEditor()]);
         return lists;
     }
@@ -310,7 +310,7 @@ internal sealed class ConversationTypesEditor : ListEditor
     }
 }
 
-internal sealed class UsersEditor(UserSession session) : ListEditor
+internal sealed class UsersEditor(UserSession session, AppConfig config) : ListEditor
 {
     public override string Title => "Users & roles";
     public override bool AllowDelete => false;
@@ -326,8 +326,16 @@ internal sealed class UsersEditor(UserSession session) : ListEditor
         grid.AddCheck(nameof(AppUser.IsActive), "Active", 60);
         grid.AddText(nameof(AppUser.PasswordState), "Password", 100, readOnly: true);
         grid.AddCheck(nameof(AppUser.IsLocked), "Locked", 60).ReadOnly = true;
-        grid.AddText(nameof(AppUser.LastSignIn), "Last sign-in", 140, readOnly: true, fill: true, format: "dd/MM/yyyy HH:mm");
+        grid.AddText(nameof(AppUser.LastSignIn), "Last sign-in", 140, readOnly: true, format: "dd/MM/yyyy HH:mm");
+        grid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "LooksAfter", HeaderText = "Marks attendance for", Width = 260, ReadOnly = true,
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, SortMode = DataGridViewColumnSortMode.NotSortable,
+        });
         Bind(db, grid, db.AppUsers.OrderBy(u => u.UserName).ToList());
+        LoadScopes(db);
+        grid.CellFormatting -= ShowScope;
+        grid.CellFormatting += ShowScope;
 
         // A user name is the key: it can be typed for a new user but not changed afterwards.
         grid.CanEditCell = (row, col) =>
@@ -344,9 +352,89 @@ internal sealed class UsersEditor(UserSession session) : ListEditor
     [
         ("Set password…", SetPassword),
         ("Unlock", (grid, _) => { if (Current(grid) is { } u) { u.FailedAttempts = 0; u.LockedUntil = null; } }),
+        ("Assign classes…", Assign),
     ];
 
     private static AppUser? Current(AccessGrid grid) => grid.CurrentRow?.DataBoundItem as AppUser;
+
+    // ----- What coordinators and teachers in charge look after -----
+
+    private List<UserScope> _scopes = [];
+    private Dictionary<int, string> _departments = [];
+    private List<(int ClassId, int SectionId, string Text)> _classSections = [];
+
+    private void LoadScopes(ArqamDbContext db)
+    {
+        var schools = db.Schools.AsNoTracking().ToDictionary(s => s.Id, s => s.Name?.Trim() ?? "");
+        _departments = db.Departments.AsNoTracking().OrderBy(d => d.SchoolId).ThenBy(d => d.Name).AsEnumerable()
+            .ToDictionary(d => d.Id, d => $"{(d.SchoolId is int s ? schools.GetValueOrDefault(s) : "")} · {d.Name?.Trim()}".TrimStart(' ', '·'));
+        var classes = db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).ToList();
+        var sections = db.Sections.AsNoTracking().OrderBy(s => s.Name).ToList();
+        _classSections = classes.SelectMany(c => sections.Where(s => s.ClassId == c.Id)
+                .Select(s => (c.Id, s.Id, $"{c.Name?.Trim()} · {s.Name?.Trim()}"
+                    + (c.DepartmentId is int d && _departments.TryGetValue(d, out var dn) ? $"   ({dn})" : ""))))
+            .ToList();
+        try { _scopes = db.UserScopes.AsNoTracking().ToList(); }
+        catch (Microsoft.Data.SqlClient.SqlException) { _scopes = []; } // sql/attendance_roles_install.sql not run yet
+    }
+
+    private string ScopeText(AppUser user)
+    {
+        if (user.Role is not (AppRole.Coordinator or AppRole.TeacherInCharge)) return user.Role == AppRole.Admin || user.Role == AppRole.Admissions ? "All classes" : "";
+        var mine = _scopes.Where(s => string.Equals(s.UserName, user.UserName, StringComparison.OrdinalIgnoreCase)).ToList();
+        var parts = user.Role == AppRole.Coordinator
+            ? mine.Where(s => s.DepartmentId is not null).Select(s => _departments.GetValueOrDefault(s.DepartmentId!.Value, "?"))
+            : mine.Where(s => s.ClassId is not null).Select(s => _classSections.FirstOrDefault(c => c.ClassId == s.ClassId && c.SectionId == s.SectionId).Text?.Split("   (")[0] ?? "?");
+        var text = string.Join(", ", parts);
+        return text.Length > 0 ? text : "Not assigned: press Assign classes";
+    }
+
+    private void ShowScope(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (sender is not AccessGrid grid || e.RowIndex < 0 || grid.Columns[e.ColumnIndex].Name != "LooksAfter" || grid.Rows[e.RowIndex].DataBoundItem is not AppUser u) return;
+        e.Value = ScopeText(u);
+        e.FormattingApplied = true;
+    }
+
+    /// <summary>Ticks the departments of a coordinator or the classes of a teacher in charge; saved straight away.</summary>
+    private void Assign(AccessGrid grid, IWin32Window owner)
+    {
+        void Say(string text) => KryptonMessageBox.Show(owner, text, "Assign classes", KryptonMessageBoxButtons.OK, KryptonMessageBoxIcon.Information);
+        if (Current(grid) is not { } user || string.IsNullOrWhiteSpace(user.UserName)) { Say("Select a user first."); return; }
+        if (user.Role is not (AppRole.Coordinator or AppRole.TeacherInCharge))
+        {
+            Say("Only coordinators and teachers in charge are assigned. Admins and the Admissions office mark every class; other roles do not mark attendance.");
+            return;
+        }
+        if (_db is null || _db.Entry(user).State is EntityState.Added or EntityState.Detached) { Say($"Save {user.UserName} first, then assign."); return; }
+        var coordinator = user.Role == AppRole.Coordinator;
+        var mine = _scopes.Where(s => string.Equals(s.UserName, user.UserName, StringComparison.OrdinalIgnoreCase)).ToList();
+        var items = coordinator
+            ? _departments.Select(d => (d.Key, (int?)null, d.Value)).ToList()
+            : _classSections.Select(c => (c.ClassId, (int?)c.SectionId, c.Text)).ToList();
+        var chosen = coordinator
+            ? mine.Where(s => s.DepartmentId is not null).Select(s => (s.DepartmentId!.Value, (int?)null))
+            : mine.Where(s => s.ClassId is not null).Select(s => (s.ClassId!.Value, s.SectionId));
+        using var form = new Shell.AssignScopeForm(user.UserName, coordinator ? "departments" : "classes and sections", items, chosen);
+        if (form.ShowDialog(owner) != DialogResult.OK) return;
+        try
+        {
+            using var db = config.CreateContext(session);
+            db.UserScopes.Where(s => s.UserName == user.UserName).ExecuteDelete();
+            db.UserScopes.AddRange(form.Chosen.Select(c => coordinator
+                ? new UserScope { UserName = user.UserName, DepartmentId = c.Id }
+                : new UserScope { UserName = user.UserName, ClassId = c.Id, SectionId = c.SectionId }));
+            db.SaveChanges();
+            _scopes = db.UserScopes.AsNoTracking().ToList();
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or DbUpdateException)
+        {
+            Program.ShowError("Could not save the assignment. Has sql/attendance_roles_install.sql been run on this database?", ex);
+            return;
+        }
+        grid.Invalidate();
+        Say($"Saved. {user.UserName} sees it at their next sign-in.");
+    }
 
     private void SetPassword(AccessGrid grid, IWin32Window owner)
     {

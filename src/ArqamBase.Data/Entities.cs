@@ -74,6 +74,31 @@ public class AttendanceStatus
     public byte SortOrder { get; set; }
 }
 
+/// <summary>The attendance of one class and section on one date (table tblAttendanceRegister).</summary>
+public class AttendanceRegister
+{
+    public int Id { get; set; }
+    public DateTime Date { get; set; }
+    public int ClassId { get; set; }
+    public int SectionId { get; set; }
+    public string TakenBy { get; set; } = "";
+    public DateTime TakenOn { get; set; }
+    /// <summary>Locked registers can be changed only by an Admin.</summary>
+    public bool IsLocked { get; set; }
+    public string? Remarks { get; set; }
+    public List<StudentAttendance> Marks { get; set; } = [];
+}
+
+/// <summary>One student's mark in a register: P, A, L or T (table tblStudentAttendance).</summary>
+public class StudentAttendance
+{
+    public int Id { get; set; }
+    public int RegisterId { get; set; }
+    public int StudentId { get; set; }
+    public string Status { get; set; } = "P";
+    public string? Remarks { get; set; }
+}
+
 public class CalendarDay
 {
     public DateTime Date { get; set; } = DateTime.Today;
@@ -83,7 +108,7 @@ public class CalendarDay
     public string DayName => Date.ToString("dddd");
 }
 
-public enum AppRole { Admin, FeeClerk, Admissions, ReadOnly }
+public enum AppRole { Admin, FeeClerk, Admissions, ReadOnly, Coordinator, TeacherInCharge }
 
 public class AppUser
 {

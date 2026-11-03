@@ -14,6 +14,7 @@ public static class Icons
         ThemeIcon = '', Settings = '', Grid = '', Menu = '', IdCard = '', Chart = '',
         Send = '', Receipt = '', Book = '', Excel = '', Calculator = '', SortUp = '',
         SortDown = '';
+    public const char Previous = '', Next = '', Cross = '', Clock = '';
 
     private static readonly Dictionary<(char, int, int), Bitmap> Cache = [];
     private static readonly string FontName = PickFont();

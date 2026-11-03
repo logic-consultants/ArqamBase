@@ -1,6 +1,6 @@
 /* Attendance, part 2: Coordinator and Teacher in charge roles, what each user is assigned to, and staff attendance.
    Run as a database owner after app_users_install.sql and attendance_install.sql. Safe to re-run.
-   Coordinators mark and edit attendance of their departments; a teacher in charge marks their own class and section.
+   Coordinators mark today's attendance of their departments, a teacher in charge their own class and section; only an Admin changes earlier days.
    They connect with their own Windows account like everyone else: add it as in windows_logins_template.sql. */
 
 -- 1. The two new roles

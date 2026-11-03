@@ -39,7 +39,7 @@ Access and the new app run side by side on the same database; users switch one a
 | Print Challans | `frmPrintChallanClasewise` |
 | Reports centre | `Classselect`, `Report Date Range`, `frmDateRange_Daily` |
 | Staff | `frmStaff` |
-| Attendance: students by class/section and date (P/A/L/T), staff with time in/out, holidays, monthly registers, absentee list, absence WhatsApp note. Coordinators mark their departments, teachers in charge their own class (today only) | `tblAttendanceMaster`, `frmAttandance*`, `frmClassAttendance`. New tables: `sql/attendance_install.sql`, `sql/attendance_roles_install.sql` |
+| Attendance: students by class/section and date (P/A/L/T), staff with time in/out, holidays, monthly registers, absentee list, absence WhatsApp note. Coordinators mark their departments, teachers in charge their own class, today only; an Admin changes earlier days. Late counts as present | `tblAttendanceMaster`, `frmAttandance*`, `frmClassAttendance`. New tables: `sql/attendance_install.sql`, `sql/attendance_roles_install.sql` |
 | WhatsApp: unpaid sender, send message, log | `frmUnpaidWhatsApp`, `frmWhatsAppsend`, `frmWhatsApp_Com`, `WAMessagesLog` |
 | SMS settings | `SMSSettings`, `smsGrid`, `*_Family_SMS` |
 | Google Contacts sync | `GoogleContacts`, `modGoogleContacts` |
@@ -93,5 +93,5 @@ Accounting reports (`Transaction Listing`, `Voucher_Journal`, `Voucher_Typewise`
 |---|---|
 | Extra modules | Keep **Accounting** and **Salaries** (phases 7–8). Accounting is new: its tables don't exist yet |
 | WhatsApp provider | **Both** GreenAPI and waapi.app; chosen in settings |
-| Roles | **Admin** (everything), **Fee clerk** (ledger, receive fee, challans), **Admissions** (students, families, attendance), **Read-only** (view and print reports), **Coordinator** (attendance of their departments; views students), **Teacher in charge** (today's attendance of their class) |
+| Roles | **Admin** (everything), **Fee clerk** (ledger, receive fee, challans), **Admissions** (students, families, attendance), **Read-only** (view and print reports), **Coordinator** (today's attendance of their departments; views students), **Teacher in charge** (today's attendance of their class) |
 | Challan paper | **Plain A4**; the app prints the full layout |

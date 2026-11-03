@@ -348,7 +348,7 @@ public sealed class AttendanceScreen : ScreenBase
         else
             parts.Add($"Taken by {_register.TakenBy} on {_register.TakenOn:dd/MM/yyyy HH:mm}.");
         if (_register is { IsLocked: true }) { parts.Add(_isAdmin ? "Locked: only an Admin can change it." : "Locked: it cannot be changed."); warn = true; }
-        if (_canEdit && !Ctx.Session.CanChangeDay(_date.Value)) parts.Add("You can mark only today's attendance; earlier days are shown to view.");
+        if (_canEdit && !Ctx.Session.CanChangeDay(_date.Value)) parts.Add("You can mark only today's attendance. Earlier days are shown to view; ask an Admin to change them.");
         if (_dirty) parts.Add("Not saved.");
         _banner.Text = string.Join("  ", parts);
         _banner.StateCommon.ShortText.Color1 = warn ? Theme.Warning : _dirty ? Theme.Accent : Theme.Muted;

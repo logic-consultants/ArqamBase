@@ -57,11 +57,8 @@ public sealed class UserSession : IDisposable
         !IsScoped || Scopes.Any(s => (s.DepartmentId is int d && d == departmentId)
                                      || (s.ClassId == classId && (sectionId is null || s.SectionId == sectionId)));
 
-    /// <summary>
-    /// How far back the user may mark or change a day's attendance: a teacher in charge only today; others any day
-    /// (an Admin can lock a day).
-    /// </summary>
-    public bool CanChangeDay(DateTime date) => Role != AppRole.TeacherInCharge || date.Date == DateTime.Today;
+    /// <summary>Only an Admin may mark or change an earlier day's attendance; everyone else marks today's.</summary>
+    public bool CanChangeDay(DateTime date) => IsAdmin || date.Date == DateTime.Today;
 
     public void Dispose() => WindowsToken?.Dispose();
 }

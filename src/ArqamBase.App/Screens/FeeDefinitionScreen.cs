@@ -166,13 +166,13 @@ public sealed class FeeDefinitionScreen : ScreenBase
                 db.FeeDefinitions.Where(d => d.StudentId != null).ToList(),
                 db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).AsEnumerable().Select(c => (c.Id, c.DepartmentId, c.Name ?? "")).ToList(),
                 db.Departments.AsNoTracking().ToDictionary(d => d.Id, d => d.SchoolId),
-                db.Sections.AsNoTracking().OrderBy(s => s.Name).AsEnumerable().Select(s => (s.Id, s.ClassId, s.Name ?? "")).ToList(),
+                ClassSections.Read(db),
                 db.Schools.AsNoTracking().OrderBy(s => s.Id).AsEnumerable().Select(s => ((int?)s.Id, s.Name ?? "")).ToList()));
             if (!ReferenceEquals(db, _db) || IsDisposed) return;
             (_classes, _departmentSchool, _sections) = (data.Classes, data.DepartmentSchool, data.Sections);
             var newest = data.Definitions.GroupBy(d => d.StudentId!.Value).ToDictionary(g => g.Key, g => g.MaxBy(d => d.Id)!);
             var className = _classes.ToDictionary(c => c.Id, c => (c.Name, c.DepartmentId));
-            var sectionName = _sections.ToDictionary(s => s.Id, s => s.Name);
+            var sectionName = _sections.DistinctBy(s => s.Id).ToDictionary(s => s.Id, s => s.Name);
             var rows = data.Students.Select(s =>
             {
                 var cls = s.ClassId is int ci && className.TryGetValue(ci, out var cn) ? cn : ("", (int?)null);
@@ -238,7 +238,7 @@ public sealed class FeeDefinitionScreen : ScreenBase
     {
         _filling = true;
         var cls = Selected(_class);
-        Fill(_section, "All sections", _sections.Where(s => cls is null || s.ClassId == cls).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
+        Fill(_section, "All sections", _sections.Where(s => cls is null || s.ClassId == cls).DistinctBy(s => s.Id).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
         _filling = false;
     }
 

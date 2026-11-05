@@ -169,6 +169,36 @@ public static class Inputs
         return box;
     }
 
+    /// <summary>
+    /// A date typed as dd/mm/yyyy. Unlike a date picker it can show any stored date, however old.
+    /// Text that is not a date puts the saved value back.
+    /// </summary>
+    public static KryptonTextBox DateText(BindingSource bs, string property)
+    {
+        var box = Text(bs, property);
+        var b = box.DataBindings[nameof(box.Text)]!;
+        b.Format += (_, e) => { if (e.Value is DateTime d) e.Value = d.ToString("dd/MM/yyyy"); };
+        b.Parse += (_, e) =>
+        {
+            var text = (e.Value as string)?.Trim();
+            if (string.IsNullOrEmpty(text)) { e.Value = null; return; }
+            e.Value = DateTime.TryParseExact(text, ["dd/MM/yyyy", "d/M/yyyy"], System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var date) ? date : bs.Current?.GetType().GetProperty(property)?.GetValue(bs.Current);
+        };
+        box.Validated += (_, _) => b.ReadValue();
+        return box;
+    }
+
+    /// <summary>An amount box: digits and a decimal point only; shows 100, not 100.0000.</summary>
+    public static KryptonTextBox Amount(BindingSource bs, string property)
+    {
+        var box = Text(bs, property);
+        box.DataBindings[nameof(box.Text)]!.FormatString = "0.##";
+        box.TextAlign = HorizontalAlignment.Right;
+        box.KeyPress += (_, e) => e.Handled = !char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar) && e.KeyChar != '.';
+        return box;
+    }
+
     public static KryptonDateTimePicker Date(BindingSource bs, string property)
     {
         var picker = new KryptonDateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", ShowCheckBox = true };

@@ -27,9 +27,10 @@ public static class ScreenCatalog
         new("staffattendance", "Staff attendance", "Attendance", Icons.IdCard, 6, Create: c => new StaffAttendanceScreen(c)),
         new("holidays", "Holidays", "Attendance", Icons.Calendar, 1, Create: c => new SetupListsScreen(c, "Holidays")),
 
-        new("staff", "Staff", "Staff & salaries", Icons.IdCard, 6, "frmStaff"),
-        new("salary", "Salary sheet", "Staff & salaries", Icons.Money, 7, "Excel salary sheets"),
-        new("advances", "Employee advances", "Staff & salaries", Icons.Receipt, 7),
+        new("staff", "Staff", "Staff & salaries", Icons.IdCard, 6, "frmStaff", c => new StaffScreen(c)),
+        new("salary", "Salary sheet", "Staff & salaries", Icons.Money, 7, "Excel salary sheets", c => new SalarySheetScreen(c), AdminOnly: true),
+        new("advances", "Employee advances", "Staff & salaries", Icons.Receipt, 7, "Advance Request Form", c => new AdvancesScreen(c), AdminOnly: true),
+        new("joboffers", "Job offer letters", "Staff & salaries", Icons.Document, 7, "Job offer letter (Word)", c => new JobOfferTemplatesScreen(c), AdminOnly: true),
 
         new("vouchers", "Vouchers", "Accounts", Icons.Receipt, 8, "ACC_Toba accounting database"),
         new("coa", "Chart of accounts", "Accounts", Icons.Book, 8),
@@ -47,7 +48,7 @@ public static class ScreenCatalog
     public static ScreenInfo Get(string key) => All.First(s => s.Key == key);
 
     /// <summary>The screens this user sees in the navigation pane, ribbon and dashboard.</summary>
-    public static IEnumerable<ScreenInfo> For(UserSession session) => All.Where(s => Area(s) is not { } area || session.CanView(area));
+    public static IEnumerable<ScreenInfo> For(UserSession session) => All.Where(s => (!s.AdminOnly || session.IsAdmin) && (Area(s) is not { } area || session.CanView(area)));
 
     /// <summary>The area a screen belongs to; none for the dashboard and Settings, which everyone has.</summary>
     private static AppArea? Area(ScreenInfo s) => s.Key switch

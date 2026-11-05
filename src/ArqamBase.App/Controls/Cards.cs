@@ -26,6 +26,17 @@ public class StackPanel : Panel
         }
     }
 
+    private int _width;
+
+    /// <summary>A width change in the middle of the parent's layout (a scroll bar appearing) can leave children too wide, so they are placed again.</summary>
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        if (Width == _width) return;
+        _width = Width;
+        if (IsHandleCreated) BeginInvoke(() => { if (!IsDisposed) PerformLayout(); });
+    }
+
     protected override void OnLayout(LayoutEventArgs levent)
     {
         base.OnLayout(levent);

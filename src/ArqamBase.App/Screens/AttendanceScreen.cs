@@ -230,9 +230,8 @@ public sealed class AttendanceScreen : ScreenBase
             // Coordinators see their departments' classes, teachers in charge their own class and section.
             var classes = db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).ToList();
             var department = classes.ToDictionary(c => c.Id, c => c.DepartmentId);
-            _sections = db.Sections.AsNoTracking().OrderBy(s => s.Name).AsEnumerable()
-                .Where(s => s.ClassId is int ci && Ctx.Session.Covers(department.GetValueOrDefault(ci), ci, s.Id))
-                .Select(s => (s.Id, s.ClassId, s.Name ?? "")).ToList();
+            _sections = ClassSections.Read(db, onRollOnly: true)
+                .Where(s => s.ClassId is int ci && Ctx.Session.Covers(department.GetValueOrDefault(ci), ci, s.Id)).ToList();
             _classes = classes.Where(c => !Ctx.Session.IsScoped || _sections.Any(s => s.ClassId == c.Id))
                 .Select(c => (c.Id, c.Name ?? "", c.SortName ?? "")).ToList();
             _holidays = db.Calendar.AsNoTracking().Where(d => d.IsHoliday).ToList().ToDictionary(d => d.Date.Date, d => d.Reason);

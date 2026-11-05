@@ -137,14 +137,14 @@ public sealed class PrintChallansScreen : ScreenBase
                 var classes = db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).AsEnumerable()
                     .Select(c => (c.Id, c.DepartmentId, c.Name ?? "", c.SortName ?? c.Name ?? "")).ToList();
                 var departments = db.Departments.AsNoTracking().ToDictionary(d => d.Id, d => d.SchoolId);
-                var sections = db.Sections.AsNoTracking().OrderBy(s => s.Name).AsEnumerable().Select(s => (s.Id, s.ClassId, s.Name ?? "")).ToList();
+                var sections = ClassSections.Read(db);
                 var schools = db.Schools.AsNoTracking().OrderBy(s => s.Id).AsEnumerable().Select(s => ((int?)s.Id, s.Name ?? "")).ToList();
                 var unpaid = (from c in db.FeeChallans.AsNoTracking()
                               join s in db.Students.AsNoTracking() on c.StudentId equals s.Id
                               where !c.Paid && s.OnRoll
                               select new { s.Id, s.Name, Father = s.Family!.FatherName, s.ClassId, s.SectionId, c.Period, c.IssueDate, Charge = c }).ToList();
                 var className = classes.ToDictionary(c => c.Id, c => (Name: c.Item3, Sort: c.Item4, Dept: c.DepartmentId));
-                var sectionName = sections.ToDictionary(s => s.Id, s => s.Item3);
+                var sectionName = sections.DistinctBy(s => s.Id).ToDictionary(s => s.Id, s => s.Item3);
                 var rows = unpaid.GroupBy(u => u.Id).Select(g =>
                 {
                     var f = g.First();
@@ -227,7 +227,7 @@ public sealed class PrintChallansScreen : ScreenBase
     {
         _filling = true;
         var cls = Selected(_class);
-        Fill(_section, "All sections", _sections.Where(s => cls is null || s.ClassId == cls).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
+        Fill(_section, "All sections", _sections.Where(s => cls is null || s.ClassId == cls).DistinctBy(s => s.Id).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
         _filling = false;
     }
 

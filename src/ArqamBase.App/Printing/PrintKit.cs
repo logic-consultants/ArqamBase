@@ -51,13 +51,13 @@ public static class PrintKit
 
     /// <summary>
     /// Call once at start. QuestPDF's Community licence is free for organisations with under USD 1M annual revenue.
-    /// The printouts use Arial and Times New Roman, which every Windows PC has.
+    /// The printouts use Arial and Times New Roman, which every Windows PC has; the job offer letter also uses Calibri and Constantia.
     /// </summary>
     public static void Init()
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var fonts = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
-        foreach (var file in new[] { "arial.ttf", "arialbd.ttf", "ariali.ttf", "times.ttf", "timesbd.ttf", "timesi.ttf", "tahoma.ttf" })
+        foreach (var file in new[] { "arial.ttf", "arialbd.ttf", "ariali.ttf", "times.ttf", "timesbd.ttf", "timesi.ttf", "tahoma.ttf", "calibri.ttf", "calibrib.ttf", "constan.ttf" })
         {
             var path = Path.Combine(fonts, file);
             if (!File.Exists(path)) continue;

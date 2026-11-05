@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ArqamBase.Data;
 using Microsoft.Data.SqlClient;
 
@@ -10,6 +10,8 @@ public sealed class AppConfig
     public string ConnectionString { get; init; } = "";
     /// <summary>Shared folder for student pictures and documents. ARQAMBASE_ATTACHMENTS overrides it.</summary>
     public string StudentAttachmentsFolder { get; init; } = @"\\das-svr\db_share\arqambase\StudentsAttachments";
+    /// <summary>Shared folder for staff pictures and documents. ARQAMBASE_STAFF_ATTACHMENTS overrides it.</summary>
+    public string StaffAttachmentsFolder { get; init; } = @"\\das-svr\db_share\arqambase\StaffAttachments";
     /// <summary>
     /// From this date Online Deposit Boys receipts take their numbers from the boys series (with Cash Receipt Boys);
     /// before it they used the girls numbers. Set it to the day the fee counter moves from Access to this app.
@@ -38,10 +40,12 @@ public sealed class AppConfig
 
         var overrideConn = Environment.GetEnvironmentVariable("ARQAMBASE_CONNECTION");
         var overrideFolder = Environment.GetEnvironmentVariable("ARQAMBASE_ATTACHMENTS");
+        var overrideStaffFolder = Environment.GetEnvironmentVariable("ARQAMBASE_STAFF_ATTACHMENTS");
         return new AppConfig
         {
             ConnectionString = string.IsNullOrWhiteSpace(overrideConn) ? config.ConnectionString : overrideConn,
             StudentAttachmentsFolder = string.IsNullOrWhiteSpace(overrideFolder) ? config.StudentAttachmentsFolder : overrideFolder,
+            StaffAttachmentsFolder = string.IsNullOrWhiteSpace(overrideStaffFolder) ? config.StaffAttachmentsFolder : overrideStaffFolder,
             OnlineBoysOwnSeriesFrom = config.OnlineBoysOwnSeriesFrom,
             ChallanBank = config.ChallanBank,
             ChallanLateFee = config.ChallanLateFee,

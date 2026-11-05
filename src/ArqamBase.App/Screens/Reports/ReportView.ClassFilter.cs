@@ -34,7 +34,7 @@ public abstract partial class ReportView
             db.Departments.AsNoTracking().AsEnumerable().ToDictionary(d => d.Id, d => (d.SchoolId, d.Name ?? "")),
             db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).AsEnumerable()
                 .Select(c => (c.Id, c.DepartmentId, c.Name ?? "", c.SortName ?? c.Name ?? "")).ToList(),
-            db.Sections.AsNoTracking().OrderBy(s => s.Name).AsEnumerable().Select(s => (s.Id, s.ClassId, s.Name ?? "")).ToList());
+            Core.ClassSections.Read(db));
     }
 
     /// <summary>The cascading School, Class and Section filters of a report.</summary>
@@ -64,7 +64,7 @@ public abstract partial class ReportView
         {
             _lookup = lookup;
             _classes = lookup.Classes.ToDictionary(c => c.Id);
-            _sections = lookup.Sections.ToDictionary(s => s.Id, s => s.Name);
+            _sections = lookup.Sections.DistinctBy(s => s.Id).ToDictionary(s => s.Id, s => s.Name);
             _filling = true;
             Fill(School, "All schools", lookup.Schools);
             _filling = false;
@@ -114,7 +114,7 @@ public abstract partial class ReportView
         {
             _filling = true;
             var cls = Selected<int?>(Class);
-            Fill(Section, "All sections", _lookup.Sections.Where(s => cls is null || s.ClassId == cls).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
+            Fill(Section, "All sections", _lookup.Sections.Where(s => cls is null || s.ClassId == cls).DistinctBy(s => s.Id).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
             _filling = false;
         }
     }

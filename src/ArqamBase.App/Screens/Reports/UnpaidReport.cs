@@ -140,7 +140,7 @@ public sealed class UnpaidReport : ReportView
             var classes = db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).AsEnumerable()
                 .Select(c => (c.Id, c.DepartmentId, c.Name ?? "", c.SortName ?? c.Name ?? "")).ToList();
             var departments = db.Departments.AsNoTracking().AsEnumerable().ToDictionary(d => d.Id, d => (d.SchoolId, d.Name ?? ""));
-            var sections = db.Sections.AsNoTracking().OrderBy(s => s.Name).AsEnumerable().Select(s => (s.Id, s.ClassId, s.Name ?? "")).ToList();
+            var sections = ClassSections.Read(db);
             var schools = db.Schools.AsNoTracking().OrderBy(s => s.Id).AsEnumerable().Select(s => ((int?)s.Id, s.Name ?? "")).ToList();
             var charges = (from c in db.FeeChallans.AsNoTracking()
                            join s in db.Students.AsNoTracking() on c.StudentId equals s.Id
@@ -187,7 +187,7 @@ public sealed class UnpaidReport : ReportView
     {
         _filling = true;
         var cls = Selected<int?>(_class);
-        Fill(_section, "All sections", _sections.Where(s => cls is null || s.ClassId == cls).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
+        Fill(_section, "All sections", _sections.Where(s => cls is null || s.ClassId == cls).DistinctBy(s => s.Id).Select(s => ((int?)s.Id, $"Section: {s.Name}")));
         _filling = false;
     }
 
@@ -200,7 +200,7 @@ public sealed class UnpaidReport : ReportView
         var section = Selected<int?>(_section);
         var period = _period.SelectedItem as string is { } p && p != AllPeriods ? FeeChallanData.PeriodKey(p) : null;
         var classInfo = _classes.ToDictionary(c => c.Id);
-        var sectionName = _sections.ToDictionary(s => s.Id, s => s.Name);
+        var sectionName = _sections.DistinctBy(s => s.Id).ToDictionary(s => s.Id, s => s.Name);
 
         var charges = _charges.Where(c => (_left.Checked || c.OnRoll)
                                           && (cls is null || c.ClassId == cls) && (section is null || c.SectionId == section)

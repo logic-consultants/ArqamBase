@@ -369,9 +369,9 @@ internal sealed class UsersEditor(UserSession session, AppConfig config) : ListE
         _departments = db.Departments.AsNoTracking().OrderBy(d => d.SchoolId).ThenBy(d => d.Name).AsEnumerable()
             .ToDictionary(d => d.Id, d => $"{(d.SchoolId is int s ? schools.GetValueOrDefault(s) : "")} · {d.Name?.Trim()}".TrimStart(' ', '·'));
         var classes = db.Classes.AsNoTracking().OrderBy(c => c.SortName).ThenBy(c => c.Name).ToList();
-        var sections = db.Sections.AsNoTracking().OrderBy(s => s.Name).ToList();
+        var sections = ClassSections.Read(db, onRollOnly: true);
         _classSections = classes.SelectMany(c => sections.Where(s => s.ClassId == c.Id)
-                .Select(s => (c.Id, s.Id, $"{c.Name?.Trim()} · {s.Name?.Trim()}"
+                .Select(s => (c.Id, s.Id, $"{c.Name?.Trim()} · {s.Name.Trim()}"
                     + (c.DepartmentId is int d && _departments.TryGetValue(d, out var dn) ? $"   ({dn})" : ""))))
             .ToList();
         try { _scopes = db.UserScopes.AsNoTracking().ToList(); }

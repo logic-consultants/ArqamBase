@@ -30,6 +30,11 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<StaffType> StaffTypes => Set<StaffType>();
     public DbSet<StaffAttendance> StaffAttendance => Set<StaffAttendance>();
     public DbSet<UserScope> UserScopes => Set<UserScope>();
+    public DbSet<SalaryHead> SalaryHeads => Set<SalaryHead>();
+    public DbSet<SalaryLine> SalaryLines => Set<SalaryLine>();
+    public DbSet<StaffAdvance> StaffAdvances => Set<StaffAdvance>();
+    public DbSet<StaffDocument> StaffDocuments => Set<StaffDocument>();
+    public DbSet<JobOfferTemplate> JobOfferTemplates => Set<JobOfferTemplate>();
 
     /// <summary>
     /// Fee owed per student (CC → amount): the total of the student's unpaid challans in Feerecipt, as the Access ledger's "Unpaid TOTAL".
@@ -175,12 +180,119 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
         {
             e.ToTable("Staff", t => t.HasTrigger("trg_Audit_Staff"));
             e.Property(x => x.Id).HasColumnName("TeachersID");
-            e.Property(x => x.Name).HasColumnName("FirstName").HasMaxLength(100);
-            e.Property(x => x.FatherName).HasMaxLength(100);
+            e.Property(x => x.Salute).HasMaxLength(255);
+            e.Property(x => x.Name).HasColumnName("FirstName").HasMaxLength(50);
+            e.Property(x => x.NameUrdu).HasColumnName("StaffNameUrdu").HasMaxLength(255);
+            e.Property(x => x.FatherName).HasMaxLength(50);
             e.Property(x => x.TypeId).HasColumnName("Type");
-            e.Property(x => x.Designation).HasMaxLength(100);
-            e.Property(x => x.CellNo).HasMaxLength(36);
+            e.Property(x => x.Caste).HasMaxLength(50);
+            e.Property(x => x.Religion).HasMaxLength(50);
+            e.Property(x => x.Cnic).HasColumnName("CNIC").HasMaxLength(20);
+            e.Property(x => x.EmergencyNo).HasMaxLength(30);
+            e.Property(x => x.StPerk).HasColumnType("money");
+            e.Property(x => x.FuelAllowance).HasColumnType("money");
+            e.Property(x => x.Designation).HasMaxLength(50);
+            e.Property(x => x.Address).HasMaxLength(255);
+            e.Property(x => x.HomePhone).HasMaxLength(10);
+            e.Property(x => x.CellNo).HasMaxLength(18);
+            e.Property(x => x.BirthDate).HasColumnName("Birthdate");
+            e.Property(x => x.Education).HasMaxLength(50);
+            e.Property(x => x.Subjects).HasMaxLength(50);
+            e.Property(x => x.MaritalStatus).HasMaxLength(50);
+            e.Property(x => x.Salary).HasColumnType("money");
+            e.Property(x => x.LastIncrement).HasColumnType("money");
+            e.Property(x => x.SecDeduction).HasColumnType("money");
+            e.Property(x => x.Scf).HasColumnName("SCF").HasColumnType("money");
+            e.Property(x => x.BranchId).HasColumnName("BranchID");
+            e.Property(x => x.PayMethod).HasMaxLength(20);
+            e.Property(x => x.BankAccount).HasMaxLength(50);
             e.Property(x => x.LeftOn).HasColumnName("SLDate");
+            e.Property(x => x.LeftReason).HasColumnName("Reason").HasMaxLength(50);
+            e.Property(x => x.InterviewRemarks).HasColumnName("RemarksofInterview").HasMaxLength(255);
+            e.Property(x => x.Reference).HasMaxLength(255);
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            MapSoftDelete(e);
+        });
+
+        b.Entity<SalaryHead>(e =>
+        {
+            e.ToTable("tblSalariesHead");
+            e.Property(x => x.Id).HasColumnName("SalHeadID");
+            e.Property(x => x.Period).HasMaxLength(6);
+            e.Property(x => x.BankChequeNo).HasMaxLength(30);
+            e.Property(x => x.CashChequeNo).HasMaxLength(30);
+            e.Property(x => x.PreparedBy).HasMaxLength(128);
+            e.Property(x => x.PreparedOn).HasColumnType("datetime2(0)");
+            e.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.HeadId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<SalaryLine>(e =>
+        {
+            e.ToTable("tblSalaries");
+            e.Property(x => x.Id).HasColumnName("SalID");
+            e.Property(x => x.HeadId).HasColumnName("fk_SalHeadID");
+            e.Property(x => x.StaffId).HasColumnName("fk_EmpID");
+            e.Property(x => x.SalaryDate).HasColumnName("SalDate");
+            e.Property(x => x.Sheet).HasColumnName("SalarySheet");
+            e.Property(x => x.BasicSalary).HasColumnType("money");
+            e.Property(x => x.AbsentLeave).HasColumnName("L/Abs");
+            e.Property(x => x.Incentive).HasColumnType("money");
+            e.Property(x => x.Deduction).HasColumnType("money");
+            e.Property(x => x.Scf).HasColumnName("SCF").HasColumnType("money");
+            e.Property(x => x.Security).HasColumnType("money");
+            e.Property(x => x.AmountPaid).HasColumnType("money");
+            e.Property(x => x.Advance).HasColumnType("money");
+            e.Property(x => x.AdvanceDeducted).HasColumnType("money");
+            e.Property(x => x.AdvanceBalance).HasColumnName("Adv_Bal").HasColumnType("money");
+            e.Property(x => x.PayMethod).HasColumnName("Bank").HasMaxLength(255);
+            e.Property(x => x.BankAccount).HasMaxLength(255);
+            e.Property(x => x.RemainingSecurity).HasMaxLength(20);
+            e.Property(x => x.Verify).HasMaxLength(30);
+        });
+
+        b.Entity<JobOfferTemplate>(e =>
+        {
+            e.ToTable("tblJobOfferTemplates");
+            e.Property(x => x.Id).HasColumnName("TemplateID");
+            e.Property(x => x.StaffTypeId).HasColumnName("StaffTypeID");
+            e.Property(x => x.UpdatedOn).HasColumnType("datetime");
+        });
+
+        b.Entity<StaffDocument>(e =>
+        {
+            e.ToTable("tblStaffDocuments");
+            e.Property(x => x.Id).HasColumnName("DocID");
+            e.Property(x => x.StaffId).HasColumnName("TeachersID");
+            e.Property(x => x.DocType).HasMaxLength(30).IsUnicode(false);
+            e.Property(x => x.FilePath).HasMaxLength(400);
+            e.Property(x => x.OriginalFileName).HasMaxLength(260);
+            e.Property(x => x.Notes).HasMaxLength(255);
+            e.Property(x => x.CreatedBy).HasMaxLength(50);
+            e.Property(x => x.DeletedBy).HasMaxLength(50);
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            e.Ignore(x => x.TypeText);
+            e.Ignore(x => x.FileName);
+            e.HasOne<StaffMember>().WithMany().HasForeignKey(x => x.StaffId);
+            MapSoftDelete(e);
+        });
+
+        b.Entity<StaffAdvance>(e =>
+        {
+            e.ToTable("tblStaffAdvance");
+            e.Property(x => x.Id).HasColumnName("AdvanceID");
+            e.Property(x => x.Date).HasColumnName("AdvanceDate").HasColumnType("date");
+            e.Property(x => x.StaffId).HasColumnName("TeachersID");
+            e.Property(x => x.Amount).HasColumnType("money");
+            e.Property(x => x.FirstPeriod).HasMaxLength(6);
+            e.Property(x => x.Witness1).HasMaxLength(100);
+            e.Property(x => x.Witness2).HasMaxLength(100);
+            e.Property(x => x.Witness3).HasMaxLength(100);
+            e.Property(x => x.PaidThrough).HasMaxLength(100);
+            e.Property(x => x.RecommendedBy).HasMaxLength(100);
+            e.Property(x => x.ApprovedBy).HasMaxLength(100);
+            e.Property(x => x.Remarks).HasMaxLength(500);
+            e.Property(x => x.CreatedBy).HasMaxLength(128);
+            e.Ignore(x => x.Installment);
             MapSoftDelete(e);
         });
 

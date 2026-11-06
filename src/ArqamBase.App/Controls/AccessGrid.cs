@@ -119,6 +119,20 @@ public class AccessGrid : KryptonDataGridView
         return col;
     }
 
+    /// <summary>Drop-down column of plain text choices; the property holds the text itself.</summary>
+    public DataGridViewComboBoxColumn AddChoices(string property, string header, IEnumerable<string> items, int width = 120)
+    {
+        var col = new DataGridViewComboBoxColumn
+        {
+            DataPropertyName = property, Name = property, HeaderText = header, Width = width,
+            DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Flat,
+            SortMode = DataGridViewColumnSortMode.Automatic
+        };
+        col.Items.AddRange(items.Cast<object>().ToArray());
+        Add(col);
+        return col;
+    }
+
     private readonly Dictionary<string, Dictionary<object, string>> _comboTexts = [];
     private readonly Dictionary<string, Func<string?, string>> _numberFormats = [];
 

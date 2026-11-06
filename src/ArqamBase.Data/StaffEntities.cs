@@ -71,6 +71,23 @@ public class StaffType : ISoftDelete
     public DateTime? DeletedOn { get; set; }
 }
 
+/// <summary>The staff's check-in and check-out times for a period (table tblStaffSchedule).</summary>
+public class StaffSchedule
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public TimeSpan CheckIn { get; set; }
+    public TimeSpan CheckOut { get; set; }
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+    /// <summary>Minutes after check-in before someone counts as late.</summary>
+    public short LateMinutes { get; set; }
+    /// <summary>Minutes before check-out before someone counts as leaving early.</summary>
+    public short EarlyMinutes { get; set; }
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedOn { get; set; }
+}
+
 /// <summary>One staff member's attendance on one date (table tblStaffAttendance).</summary>
 public class StaffAttendance
 {

@@ -31,6 +31,7 @@ public sealed class ReportsScreen : ScreenBase
         new("Labels", "Students", null, "Labels Students, WorkBooks Labels"),
         new("Monthly attendance", "Attendance", c => new MonthlyAttendanceReport(c)),
         new("Absentee list", "Attendance", c => new AbsenteeReport(c)),
+        new("Staff list", "Staff", c => new StaffListReport(c)),
         new("Staff attendance", "Staff", c => new StaffAttendanceReport(c)),
         new("Staff personal", "Staff", null, "TeachersPersonal"),
     ];

@@ -177,7 +177,7 @@ public sealed class SalarySheetScreen : ScreenBase
         ShowBanner();
     }
 
-    private static string CampusName(string? school) =>
+    internal static string CampusName(string? school) =>
         school?.Contains("GIRLS", StringComparison.OrdinalIgnoreCase) == true ? "Girls" : school?.Contains("BOYS", StringComparison.OrdinalIgnoreCase) == true ? "Boys" : school?.Trim() ?? "";
 
     private static void Sort(List<Row> rows) =>
@@ -258,6 +258,8 @@ public sealed class SalarySheetScreen : ScreenBase
                 .OrderByDescending(h => h.Period).FirstOrDefault()?.Lines.ToDictionary(l => l.StaffId) ?? [];
             var deducted = db.SalaryLines.AsNoTracking().Where(l => db.SalaryHeads.Any(h => h.Id == l.HeadId && string.Compare(h.Period, period) < 0))
                 .GroupBy(l => l.StaffId).Select(g => new { g.Key, Sum = g.Sum(l => l.AdvanceDeducted ?? 0) }).ToDictionary(x => x.Key, x => x.Sum);
+            var deposited = db.SalaryLines.AsNoTracking().Where(l => db.SalaryHeads.Any(h => h.Id == l.HeadId && string.Compare(h.Period, period) < 0))
+                .GroupBy(l => l.StaffId).Select(g => new { g.Key, Sum = g.Sum(l => l.Security ?? 0) }).ToDictionary(x => x.Key, x => x.Sum);
             var advances = db.StaffAdvances.AsNoTracking().Where(a => a.Date < after).ToList().ToLookup(a => a.StaffId);
             var rows = _list?.AllItems.ToList() ?? [];
             foreach (var s in staff)
@@ -266,13 +268,15 @@ public sealed class SalarySheetScreen : ScreenBase
                 var salary = s.CurrentSalary is int cs ? cs : prev?.BasicSalary ?? 0;
                 var mine = advances[s.Id].ToList();
                 var before = deducted.GetValueOrDefault(s.Id);
+                var security = Payroll.SecurityDue(s.Salary, s.SecDeduction ?? 0, deposited.GetValueOrDefault(s.Id));
+                var securityLeft = Payroll.SecurityLeft(s.Salary, deposited.GetValueOrDefault(s.Id) + security);
                 var row = new Row
                 {
                     StaffId = s.Id, Sheet = s.SalarySheet ?? prev?.Sheet, Name = s.Name?.Trim() ?? "", Designation = Post(s, posts), Campus = CampusOf(s, campus),
                     Joined = s.DateHired, Qualification = s.Education?.Trim() ?? "", Salary = salary, Days = days, AbsentLeave = absent.GetValueOrDefault(s.Id),
                     PreAdvance = Math.Max(mine.Sum(a => a.Amount) - before, 0), AdvanceDeducted = Payroll.AdvanceDue(mine, before, period),
-                    Scf = s.Scf ?? prev?.Scf ?? 0, Security = s.SecDeduction ?? 0, PayMethod = s.PayMethod ?? prev?.PayMethod ?? "",
-                    RemainingSecurity = prev?.RemainingSecurity ?? "", BankAccount = s.BankAccount ?? prev?.BankAccount ?? "",
+                    Scf = s.Scf ?? prev?.Scf ?? 0, Security = security, PayMethod = s.PayMethod ?? prev?.PayMethod ?? "",
+                    RemainingSecurity = securityLeft ?? prev?.RemainingSecurity ?? "", BankAccount = s.BankAccount ?? prev?.BankAccount ?? "",
                 };
                 row.Deduction = Payroll.AbsenceDeduction(row.Salary, row.Days, row.AbsentLeave);
                 rows.Add(row);

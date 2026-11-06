@@ -9,7 +9,7 @@ namespace ArqamBase.App.Screens.Reports;
 /// </summary>
 public sealed class StaffAttendanceReport : ReportView
 {
-    private sealed record Mark(DateTime Date, int StaffId, string Status, TimeSpan? TimeIn);
+    private sealed record Mark(DateTime Date, int StaffId, string Status, TimeSpan? TimeIn, TimeSpan? TimeOut);
     private sealed record Person(int Id, string Name, string Post, string Kind, DateTime? LeftOn);
     private const string AllStaff = "All staff";
 
@@ -18,6 +18,7 @@ public sealed class StaffAttendanceReport : ReportView
     private List<Mark> _marks = [];
     private List<Person> _staff = [];
     private HashSet<DateTime> _holidays = [];
+    private List<ArqamBase.Data.StaffSchedule> _schedules = [];
     private FilterBindingList<MonthlyAttendanceReport.Row>? _list;
     private bool _filling;
 
@@ -33,7 +34,7 @@ public sealed class StaffAttendanceReport : ReportView
         AddShowButton();
         _month.SelectedIndexChanged += (_, _) => { if (!_filling) _ = ShowReportAsync(); };
         _kind.SelectedIndexChanged += (_, _) => Apply();
-        Hint = "P present, A absent, L leave, T late (counts as present), H holiday or Sunday; a blank day was not taken. Average time in is of the days a time was recorded.";
+        Hint = "P present, A absent, L leave, T late (counts as present), E days left early by the staff schedule, H holiday or Sunday; a blank day was not taken. Average time in is of the days a time was recorded.";
         Grid.AddText(nameof(MonthlyAttendanceReport.Row.Cc), "ID", 50);
         Grid.AddText(nameof(MonthlyAttendanceReport.Row.Name), "Name", 170, fill: true);
         Grid.AddText(nameof(MonthlyAttendanceReport.Row.ClassName), "Post", 110);
@@ -43,6 +44,7 @@ public sealed class StaffAttendanceReport : ReportView
         AddNumber(nameof(MonthlyAttendanceReport.Row.Absent), "A", 40);
         AddNumber(nameof(MonthlyAttendanceReport.Row.Leave), "L", 40);
         AddNumber(nameof(MonthlyAttendanceReport.Row.Late), "T", 40);
+        AddNumber(nameof(MonthlyAttendanceReport.Row.LeftEarly), "E", 40);
         AddNumber(nameof(MonthlyAttendanceReport.Row.Percent), "%", 45, sum: false);
         Grid.AddText(nameof(MonthlyAttendanceReport.Row.AverageTimeIn), "Avg in", 60);
     }
@@ -50,7 +52,7 @@ public sealed class StaffAttendanceReport : ReportView
     public override string Title => "Staff attendance";
     public override string Replaces => "nothing (new in this app)";
 
-    private DateTime Month => Selected<DateTime>(_month);
+    private DateTime Month => Selected<DateTime>(_month) is { Year: > 1 } month ? month : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
 
     public override string StatusText => $"{_list?.Count ?? 0:N0} staff · {_marks.Select(m => m.Date).Distinct().Count():N0} days taken";
 
@@ -63,7 +65,7 @@ public sealed class StaffAttendanceReport : ReportView
             var present = rows.Sum(r => r.Present + r.Late);
             var marked = rows.Sum(r => r.Marked);
             return [("Staff", $"{rows.Count:N0}"), ("Absences", $"{rows.Sum(r => r.Absent):N0}"), ("Leave", $"{rows.Sum(r => r.Leave):N0}"),
-                ("Late", $"{rows.Sum(r => r.Late):N0}"), ("Attendance", AttendanceData.Percent(present, marked) is int p ? $"{p}%" : "not taken")];
+                ("Late", $"{rows.Sum(r => r.Late):N0}"), ("Left early", $"{rows.Sum(r => r.LeftEarly):N0}"), ("Attendance", AttendanceData.Percent(present, marked) is int p ? $"{p}%" : "not taken")];
         }
     }
 
@@ -74,7 +76,7 @@ public sealed class StaffAttendanceReport : ReportView
     protected override async Task LoadAsync()
     {
         var month = Month;
-        var (staff, marks, holidays) = await Task.Run(() =>
+        var (staff, marks, holidays, schedules) = await Task.Run(() =>
         {
             using var db = Ctx.Config.CreateContext(Ctx.Session);
             var after = month.AddMonths(1);
@@ -85,14 +87,16 @@ public sealed class StaffAttendanceReport : ReportView
                 return new Person(s.Id, s.Name?.Trim() ?? "", type.Name is { Length: > 0 } n ? n : s.Designation?.Trim() ?? "", type.Kind ?? "", s.LeftOn);
             }).ToList();
             var marks = db.StaffAttendance.AsNoTracking().Where(a => a.Date >= month && a.Date < after)
-                .Select(a => new { a.Date, a.StaffId, a.Status, a.TimeIn }).AsEnumerable()
-                .Select(a => new Mark(a.Date.Date, a.StaffId, a.Status.Trim().ToUpperInvariant(), a.TimeIn)).ToList();
+                .Select(a => new { a.Date, a.StaffId, a.Status, a.TimeIn, a.TimeOut }).AsEnumerable()
+                .Select(a => new Mark(a.Date.Date, a.StaffId, a.Status.Trim().ToUpperInvariant(), a.TimeIn, a.TimeOut)).ToList();
             var holidays = db.Calendar.AsNoTracking().Where(d => d.IsHoliday && d.Date >= month && d.Date < after).Select(d => d.Date).ToList();
-            return (staff, marks, holidays);
+            var schedules = db.StaffSchedules.AsNoTracking().Where(s => s.From < after && s.To >= month).ToList();
+            return (staff, marks, holidays, schedules);
         });
         if (IsDisposed) return;
         _staff = staff;
         _marks = marks;
+        _schedules = schedules;
         _holidays = holidays.Select(d => d.Date).ToHashSet();
         Apply();
     }
@@ -116,6 +120,7 @@ public sealed class StaffAttendanceReport : ReportView
                     Days = MonthlyAttendanceReport.DayCells(month, _holidays, marks.Select(m => (m.Date, m.Status))),
                     Cc = s.Id, Name = s.Name, ClassName = s.Post, SectionName = s.Kind,
                     Present = N("P"), Absent = N("A"), Leave = N("L"), Late = N("T"), Marked = marks.Count,
+                    LeftEarly = marks.Count(m => AttendanceData.CountsAsPresent(m.Status) && StaffTimes.EarlyBy(StaffTimes.For(_schedules, m.Date), m.TimeOut) > 0),
                     Percent = AttendanceData.Percent(marks.Count(m => AttendanceData.CountsAsPresent(m.Status)), marks.Count),
                     AverageTimeIn = times.Count == 0 ? "" : TimeSpan.FromMinutes(Math.Round(times.Average())).ToString("hh\\:mm"),
                 };

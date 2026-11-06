@@ -25,6 +25,7 @@ public static class ScreenCatalog
 
         new("attendance", "Mark attendance", "Attendance", Icons.Check, 6, "frmClassAttendance", c => new AttendanceScreen(c)),
         new("staffattendance", "Staff attendance", "Attendance", Icons.IdCard, 6, Create: c => new StaffAttendanceScreen(c)),
+        new("staffschedule", "Staff schedule", "Attendance", Icons.Clock, 6, Create: c => new StaffScheduleScreen(c), AdminOnly: true),
         new("holidays", "Holidays", "Attendance", Icons.Calendar, 1, Create: c => new SetupListsScreen(c, "Holidays")),
 
         new("staff", "Staff", "Staff & salaries", Icons.IdCard, 6, "frmStaff", c => new StaffScreen(c)),
@@ -55,7 +56,7 @@ public static class ScreenCatalog
     {
         "dashboard" or "settings" => null,
         "holidays" => AppArea.Setup,
-        "staffattendance" => AppArea.Staff,
+        "staffattendance" or "staffschedule" => AppArea.Staff,
         _ => s.Group switch
         {
             "Students" => AppArea.Students,

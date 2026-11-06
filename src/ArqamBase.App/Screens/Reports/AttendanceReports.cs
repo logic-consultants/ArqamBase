@@ -41,6 +41,8 @@ public sealed class MonthlyAttendanceReport : ReportView
         public int Absent { get; init; }
         public int Leave { get; init; }
         public int Late { get; init; }
+        /// <summary>Staff only: the days they left before the schedule allows.</summary>
+        public int LeftEarly { get; init; }
         public int Marked { get; init; }
         public int? Percent { get; init; }
         /// <summary>Staff only: the average time in, e.g. "08:05".</summary>
@@ -143,7 +145,7 @@ public sealed class MonthlyAttendanceReport : ReportView
     public override string Title => "Monthly attendance";
     public override string Replaces => "the Access month sheet (table Attendance)";
 
-    private DateTime Month => Selected<DateTime>(_month);
+    private DateTime Month => Selected<DateTime>(_month) is { Year: > 1 } month ? month : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
 
     public override string StatusText
     {

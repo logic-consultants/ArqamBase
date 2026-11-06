@@ -29,6 +29,7 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<StaffMember> Staff => Set<StaffMember>();
     public DbSet<StaffType> StaffTypes => Set<StaffType>();
     public DbSet<StaffAttendance> StaffAttendance => Set<StaffAttendance>();
+    public DbSet<StaffSchedule> StaffSchedules => Set<StaffSchedule>();
     public DbSet<UserScope> UserScopes => Set<UserScope>();
     public DbSet<SalaryHead> SalaryHeads => Set<SalaryHead>();
     public DbSet<SalaryLine> SalaryLines => Set<SalaryLine>();
@@ -303,6 +304,19 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Kind).HasColumnName("Type");
             e.Property(x => x.Name).HasColumnName("Detail");
             MapSoftDelete(e);
+        });
+
+        b.Entity<StaffSchedule>(e =>
+        {
+            e.ToTable("tblStaffSchedule");
+            e.Property(x => x.Id).HasColumnName("ScheduleID");
+            e.Property(x => x.Name).HasColumnName("ScheduleName").HasMaxLength(50);
+            e.Property(x => x.CheckIn).HasColumnType("time(0)");
+            e.Property(x => x.CheckOut).HasColumnType("time(0)");
+            e.Property(x => x.From).HasColumnName("EffectiveFrom").HasColumnType("date");
+            e.Property(x => x.To).HasColumnName("EffectiveTo").HasColumnType("date");
+            e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            e.Property(x => x.UpdatedOn).HasColumnType("datetime2(0)");
         });
 
         b.Entity<StaffAttendance>(e =>

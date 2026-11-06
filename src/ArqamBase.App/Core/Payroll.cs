@@ -22,6 +22,17 @@ public static class Payroll
     public static decimal Paid(decimal salary, decimal incentive, decimal deduction, decimal advance, decimal scf, decimal security) =>
         Math.Round(salary + incentive - deduction - advance - scf - security, 2);
 
+    /// <summary>
+    /// This month's security deduction: the deposit equals the first salary, so the last deduction is what remains and then it stops.
+    /// With no first salary on record the monthly amount stands.
+    /// </summary>
+    public static decimal SecurityDue(decimal? firstSalary, decimal monthly, decimal depositedBefore) =>
+        firstSalary > 0 ? Math.Clamp(firstSalary.Value - depositedBefore, 0, monthly) : monthly;
+
+    /// <summary>The Rem. sec text: what is still to be deposited, or Clear; none when there is no first salary on record.</summary>
+    public static string? SecurityLeft(decimal? firstSalary, decimal deposited) =>
+        firstSalary > 0 ? (firstSalary.Value > deposited ? $"{firstSalary.Value - deposited:0.##}" : "Clear") : null;
+
     /// <summary>The key of a month, e.g. 202610.</summary>
     public static string PeriodKey(DateTime month) => month.ToString("yyyyMM");
 

@@ -34,6 +34,7 @@ public sealed class ReportsScreen : ScreenBase
         new("Staff list", "Staff", c => new StaffListReport(c)),
         new("Staff attendance", "Staff", c => new StaffAttendanceReport(c)),
         new("Staff personal", "Staff", null, "TeachersPersonal"),
+        new("Message log", "Messages", c => new MessageLogReport(c)),
     ];
 
     private readonly ListBox _reports = new()

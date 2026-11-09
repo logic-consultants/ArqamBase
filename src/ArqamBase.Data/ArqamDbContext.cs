@@ -30,6 +30,8 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<StaffType> StaffTypes => Set<StaffType>();
     public DbSet<StaffAttendance> StaffAttendance => Set<StaffAttendance>();
     public DbSet<StaffSchedule> StaffSchedules => Set<StaffSchedule>();
+    public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
+    public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
     public DbSet<UserScope> UserScopes => Set<UserScope>();
     public DbSet<SalaryHead> SalaryHeads => Set<SalaryHead>();
     public DbSet<SalaryLine> SalaryLines => Set<SalaryLine>();
@@ -196,6 +198,7 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Address).HasMaxLength(255);
             e.Property(x => x.HomePhone).HasMaxLength(10);
             e.Property(x => x.CellNo).HasMaxLength(18);
+            e.Property(x => x.Email).HasMaxLength(100);
             e.Property(x => x.BirthDate).HasColumnName("Birthdate");
             e.Property(x => x.Education).HasMaxLength(50);
             e.Property(x => x.Subjects).HasMaxLength(50);
@@ -304,6 +307,33 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Kind).HasColumnName("Type");
             e.Property(x => x.Name).HasColumnName("Detail");
             MapSoftDelete(e);
+        });
+
+        b.Entity<MessageTemplate>(e =>
+        {
+            e.ToTable("tblMessageTemplates");
+            e.HasKey(x => x.Key);
+            e.Property(x => x.Key).HasColumnName("TemplateKey").HasMaxLength(30).IsUnicode(false);
+            e.Property(x => x.Subject).HasMaxLength(200);
+            e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            e.Property(x => x.UpdatedOn).HasColumnType("datetime2(0)");
+        });
+
+        b.Entity<MessageLog>(e =>
+        {
+            e.ToTable("tblMessageLog");
+            e.Property(x => x.Id).HasColumnName("LogID");
+            e.Property(x => x.SentOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.SentBy).HasMaxLength(128);
+            e.Property(x => x.Kind).HasMaxLength(30).IsUnicode(false);
+            e.Property(x => x.RefKey).HasMaxLength(50);
+            e.Property(x => x.PersonId).HasColumnName("PersonID");
+            e.Property(x => x.PersonName).HasMaxLength(150);
+            e.Property(x => x.Channel).HasMaxLength(10).IsUnicode(false);
+            e.Property(x => x.SentTo).HasMaxLength(200);
+            e.Property(x => x.FileName).HasMaxLength(200);
+            e.Property(x => x.Status).HasMaxLength(10).IsUnicode(false);
+            e.Property(x => x.Detail).HasMaxLength(500);
         });
 
         b.Entity<StaffSchedule>(e =>

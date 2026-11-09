@@ -3,7 +3,7 @@ using Krypton.Toolkit;
 
 namespace ArqamBase.App.Screens;
 
-/// <summary>Per-user settings. Email, SMS and WhatsApp settings are added in phase 5.</summary>
+/// <summary>Per-user settings. WhatsApp and email accounts are on the Message settings screen.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
     private readonly Dictionary<ThemeChoice, KryptonRadioButton> _themes = [];
@@ -60,7 +60,7 @@ public sealed class SettingsScreen : ScreenBase
 
         flow.Controls.Add(appearance);
         flow.Controls.Add(account);
-        flow.Controls.Add(new KryptonLabel { AutoSize = true, Text = "Email, SMS and WhatsApp settings come with the Messages module (phase 5)." });
+        flow.Controls.Add(new KryptonLabel { AutoSize = true, Text = "WhatsApp and email accounts are on the Message settings screen, under Messages." });
 
         Controls.Add(flow);
         Controls.Add(Heading("Settings"));

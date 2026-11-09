@@ -281,8 +281,8 @@ public sealed class MainForm : KryptonForm
         var words = (screen?.NewText ?? "New").Split(' ', 2);
         foreach (var b in _newButtons)
         {
-            b.TextLine1 = words[0];
-            b.TextLine2 = words.Length > 1 ? words[1] : "";
+            b.TextLine1 = Roomy(words[0]);
+            b.TextLine2 = words.Length > 1 ? Roomy(words[1]) : "";
         }
 
         if (screen is null || screen.Commands.Count == 0) return;
@@ -335,13 +335,16 @@ public sealed class MainForm : KryptonForm
         return group;
     }
 
+    /// <summary>Ribbon button text with a little space each side, so a long word never reaches the edge of its group.</summary>
+    private static string Roomy(string text) => text.Length == 0 ? "" : $"  {text}  ";
+
     private KryptonRibbonGroupButton Btn(string text, char glyph, Action click)
     {
         var words = text.Split(' ', 2);
         var button = new KryptonRibbonGroupButton
         {
-            TextLine1 = words[0],
-            TextLine2 = words.Length > 1 ? words[1] : "",
+            TextLine1 = Roomy(words[0]),
+            TextLine2 = words.Length > 1 ? Roomy(words[1]) : "",
             ImageLarge = Icons.Large(glyph),
             ImageSmall = Icons.Small(glyph),
         };

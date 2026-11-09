@@ -15,6 +15,7 @@ public class StaffMember : ISoftDelete
     public string? Address { get; set; }
     public string? HomePhone { get; set; }
     public string? CellNo { get; set; }
+    public string? Email { get; set; }
     public DateTime? BirthDate { get; set; }
     public DateTime? DateHired { get; set; }
     /// <summary>Last degree (column Education).</summary>
@@ -152,12 +153,6 @@ public class SalaryLine
     /// <summary>BAHL or CASH (column Bank).</summary>
     public string? PayMethod { get; set; }
     public string? BankAccount { get; set; }
-    public string? Caste { get; set; }
-    public string? Religion { get; set; }
-    public string? Cnic { get; set; }
-    public string? EmergencyNo { get; set; }
-    public decimal? StPerk { get; set; }
-    public decimal? FuelAllowance { get; set; }
     public string? RemainingSecurity { get; set; }
     public string? Verify { get; set; }
 }

@@ -38,6 +38,12 @@ public sealed class StudentsScreen : ScreenBase
     private readonly KryptonLabel _docInfo = new() { Text = "", AutoSize = true };
     private readonly FlowLayoutPanel _docBar = new() { Dock = DockStyle.Top, BackColor = Color.Transparent, WrapContents = false, Padding = new Padding(0, 4, 0, 0) };
     private readonly List<Control> _docEditButtons = [];
+    private readonly AccessGrid _feeGrid = new() { ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false };
+    private readonly Label _feeInfo = new() { Text = "", AutoSize = true, Margin = new Padding(12, 8, 3, 3), BackColor = Color.Transparent, ForeColor = Theme.Muted };
+    private readonly KryptonCheckBox _feeAll = new() { Text = "Show paid challans too", AutoSize = true, Checked = true, Padding = new Padding(8, 4, 0, 0) };
+    private KryptonPage? _feePage;
+    private List<FeeChallan> _fees = [];
+    private int? _feesFor;
     private readonly StudentDocumentStore _store;
     private List<StudentDocument> _documents = [];
 
@@ -85,7 +91,8 @@ public sealed class StudentsScreen : ScreenBase
         _tabs.Button.ContextButtonDisplay = ButtonDisplay.Hide;
         _tabs.Pages.Add(Page("General", _generalHost));
         _tabs.Pages.Add(Page("Family", FamilyTab()));
-        _tabs.Pages.Add(Page("Fees", Later("The fee ledger for this student comes in phase 3. Until then, use Access.")));
+        _tabs.Pages.Add(_feePage = Page("Fees", FeesTab()));
+        _tabs.SelectedPageChanged += (_, _) => { if (_tabs.SelectedPage == _feePage) { _feesFor = null; _ = ShowFeesAsync(_current); } }; // fresh each time, after fee is received
         _tabs.Pages.Add(Page("Attendance", Later("Attendance history comes with the attendance module (phase 6).")));
         _tabs.Pages.Add(Page("Conversations", ConversationTab()));
         _tabs.Pages.Add(Page("Documents", DocumentsTab()));
@@ -209,6 +216,86 @@ public sealed class StudentsScreen : ScreenBase
         host.Controls.Add(_family);
         host.Controls.Add(bar);
         return host;
+    }
+
+    /// <summary>The student's challans, newest first, read only. Receiving fee and changing challans stay in the Fee ledger.</summary>
+    private Control FeesTab()
+    {
+        var host = new KryptonPanel();
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, BackColor = Color.Transparent, WrapContents = false };
+        var open = new KryptonButton { Text = "Open in Fee ledger", AutoSize = true };
+        open.Click += (_, _) => OpenLedger();
+        bar.Controls.AddRange([open, _feeAll, _feeInfo]);
+        _feeAll.CheckedChanged += (_, _) => BindFees();
+        _feeGrid.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) OpenLedger(); };
+        _feeGrid.CellFormatting += (_, e) =>
+        {
+            if (e.RowIndex >= 0 && e.CellStyle is not null && _feeGrid.Rows[e.RowIndex].DataBoundItem is FeeChallan { Paid: false })
+                e.CellStyle.ForeColor = e.CellStyle.SelectionForeColor = Theme.Error;
+        };
+        host.Controls.Add(_feeGrid);
+        host.Controls.Add(bar);
+        return host;
+    }
+
+    private void OpenLedger()
+    {
+        if (_current is { Id: not 0 } s) Ctx.OpenScreenAt("ledger", s.Id);
+    }
+
+    /// <summary>Loads the challans when the Fees tab is open, in the background, once per student.</summary>
+    private async Task ShowFeesAsync(Student? student)
+    {
+        if (_tabs.SelectedPage != _feePage) return;
+        if (student is not { Id: not 0 }) { _feesFor = null; _fees = []; BindFees(); return; }
+        if (_feesFor == student.Id) return;
+        _feesFor = student.Id;
+        _feeInfo.Text = "Loading…";
+        List<FeeChallan> fees;
+        try
+        {
+            fees = await Task.Run(() =>
+            {
+                using var db = Ctx.Config.CreateContext(Ctx.Session);
+                return db.FeeChallans.AsNoTracking().Where(c => c.StudentId == student.Id && !c.IsDeleted)
+                    .OrderByDescending(c => c.IssueDate).ThenByDescending(c => c.Id).ToList();
+            });
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or InvalidOperationException)
+        {
+            _feesFor = null;
+            _feeInfo.Text = "Could not load the fee record: " + ex.Message;
+            return;
+        }
+        if (IsDisposed || !ReferenceEquals(student, _current)) return;
+        _fees = fees;
+        BindFees();
+    }
+
+    private void BindFees()
+    {
+        _feeGrid.ResetColumns();
+        var rows = _feeAll.Checked ? _fees : _fees.Where(c => !c.Paid).ToList();
+        _feeGrid.AddText(nameof(FeeChallan.Period), "Period", 80);
+        _feeGrid.AddText(nameof(FeeChallan.IssueDate), "Issued", 95, format: "dd/MM/yyyy");
+        _feeGrid.AddText(nameof(FeeChallan.DueDate), "Due", 95, format: "dd/MM/yyyy");
+        foreach (var (property, header) in new[]
+                 {
+                     (nameof(FeeChallan.TuitionFee), "Tuition"), (nameof(FeeChallan.ExamsFee), "Exams/AF"), (nameof(FeeChallan.AdmissionFee), "Admission"),
+                     (nameof(FeeChallan.Fine), "Fine"), (nameof(FeeChallan.Other), "Other"), (nameof(FeeChallan.Total), "Total"), (nameof(FeeChallan.ReceivedAmount), "Received"),
+                 })
+            _feeGrid.AddText(property, header, 85, format: "N0").DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+        _feeGrid.AddText(nameof(FeeChallan.ReceivedOn), "Received on", 100, format: "dd/MM/yyyy");
+        _feeGrid.AddText(nameof(FeeChallan.ReceiptNo), "Receipt", 70);
+        _feeGrid.AddText(nameof(FeeChallan.Remarks), "Remarks", 150, fill: true);
+        _feeGrid.Bind(new FilterBindingList<FeeChallan>(rows));
+        var unpaid = _fees.Where(c => !c.Paid).ToList();
+        var paid = _fees.Where(c => c.Paid).ToList();
+        _feeInfo.Text = _current is not { Id: not 0 } ? ""
+            : _fees.Count == 0 ? "No challans."
+            : $"{unpaid.Count} unpaid, Rs {unpaid.Sum(c => c.Total):N0}  ·  received Rs {paid.Sum(c => c.ReceivedAmount ?? 0):N0} on {paid.Count} challans"
+              + (paid.Where(c => c.ReceivedOn != null).MaxBy(c => c.ReceivedOn) is { } last ? $"  ·  last paid {last.ReceivedOn:dd/MM/yyyy}" : "")
+              + "  ·  unpaid in red; double-click to open the Fee ledger";
     }
 
     private Control ConversationTab()
@@ -444,6 +531,7 @@ public sealed class StudentsScreen : ScreenBase
         t.Mark("conversations");
         ShowDocuments(next);
         t.Mark("documents + photo");
+        _ = ShowFeesAsync(next);
         RaiseStatusChanged();
     }
 

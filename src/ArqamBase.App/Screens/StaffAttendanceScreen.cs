@@ -532,7 +532,7 @@ public sealed class StaffAttendanceScreen : ScreenBase
         {
             var cell = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex];
             if (!IsTime(cell) || _grid.Rows[e.RowIndex].DataBoundItem is not Row row) return;
-            var isOut = cell.OwningColumn.DataPropertyName == nameof(Row.TimeOut);
+            var isOut = cell.OwningColumn!.DataPropertyName == nameof(Row.TimeOut);
             e.Value = !StaffTimes.TryParse(e.Value as string, out var time) ? (isOut ? row.TimeOut : row.TimeIn)
                 : time is { } t ? StaffTimes.Text(isOut ? StaffTimes.Afternoon(t, row.Schedule) : t) : null;
             AddTimeChoice(e.Value as string);

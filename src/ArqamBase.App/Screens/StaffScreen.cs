@@ -80,6 +80,7 @@ public sealed class StaffScreen : ScreenBase
         personal.Add("Date of birth", Inputs.DateText(_bs, nameof(StaffMember.BirthDate)));
         personal.Add("Marital status", Inputs.Text(_bs, nameof(StaffMember.MaritalStatus)));
         personal.Add("Cell no.", Inputs.Phone(_bs, nameof(StaffMember.CellNo)));
+        personal.Add("Email", Inputs.Text(_bs, nameof(StaffMember.Email)));
         var home = personal.Add("Home phone", Inputs.Text(_bs, nameof(StaffMember.HomePhone)));
         home.MaxLength = 10;
         personal.Add("CNIC no.", Inputs.Text(_bs, nameof(StaffMember.Cnic)));

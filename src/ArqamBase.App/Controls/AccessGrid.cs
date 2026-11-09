@@ -24,8 +24,7 @@ public class AccessGrid : KryptonDataGridView
         EditMode = DataGridViewEditMode.EditOnKeystrokeOrF2;
         RowHeadersWidth = 28;
         ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-        ColumnHeadersHeight = 30;
-        RowTemplate.Height = 26;
+        SizeRowsToFont();
         Dock = DockStyle.Fill;
         DataError += (_, e) =>
         {
@@ -36,6 +35,35 @@ public class AccessGrid : KryptonDataGridView
     }
 
     public IFilterableList? FilterList => DataSource as IFilterableList;
+
+    /// <summary>Whether the headings have the filter arrow and menu (off for small summary grids).</summary>
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool ShowFilters { get; set; } = true;
+
+    /// <summary>Rows tall enough for two lines of text (a name with a smaller line under it), drawn by the screen.</summary>
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool TwoLineRows
+    {
+        get => _twoLineRows;
+        set { _twoLineRows = value; SizeRowsToFont(); }
+    }
+    private bool _twoLineRows;
+
+    /// <summary>Row and heading heights for the font chosen in Settings.</summary>
+    private void SizeRowsToFont()
+    {
+        var rowHeight = _twoLineRows ? Theme.Scaled(1f).Height + Theme.Scaled(0.85f).Height + 16 : Theme.RowHeight;
+        if (ColumnHeadersHeight != Theme.RowHeight + 4) ColumnHeadersHeight = Theme.RowHeight + 4;
+        if (RowTemplate.Height == rowHeight) return;
+        RowTemplate.Height = rowHeight;
+        foreach (DataGridViewRow row in Rows) row.Height = rowHeight;
+    }
+
+    protected override void OnFontChanged(EventArgs e)
+    {
+        base.OnFontChanged(e);
+        SizeRowsToFont();
+    }
 
     // ----- Column helpers -----
 
@@ -91,7 +119,48 @@ public class AccessGrid : KryptonDataGridView
         return col;
     }
 
+    /// <summary>Drop-down column of plain text choices; the property holds the text itself.</summary>
+    public DataGridViewComboBoxColumn AddChoices(string property, string header, IEnumerable<string> items, int width = 120)
+    {
+        var col = new DataGridViewComboBoxColumn
+        {
+            DataPropertyName = property, Name = property, HeaderText = header, Width = width,
+            DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Flat,
+            SortMode = DataGridViewColumnSortMode.Automatic
+        };
+        col.Items.AddRange(items.Cast<object>().ToArray());
+        Add(col);
+        return col;
+    }
+
     private readonly Dictionary<string, Dictionary<object, string>> _comboTexts = [];
+    private readonly Dictionary<string, Func<string?, string>> _numberFormats = [];
+
+    /// <summary>
+    /// Shows a text column through a layout (e.g. <see cref="NumberFormat.Phone"/>) and saves edits as plain digits.
+    /// Filters show the same layout.
+    /// </summary>
+    public void FormatNumbers(string property, Func<string?, string> format) => _numberFormats[property] = format;
+
+    protected override void OnCellFormatting(DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.ColumnIndex >= 0 && _numberFormats.TryGetValue(Columns[e.ColumnIndex].DataPropertyName, out var format))
+        {
+            e.Value = format(e.Value as string);
+            e.FormattingApplied = true;
+        }
+        base.OnCellFormatting(e);
+    }
+
+    protected override void OnCellParsing(DataGridViewCellParsingEventArgs e)
+    {
+        if (e.ColumnIndex >= 0 && _numberFormats.ContainsKey(Columns[e.ColumnIndex].DataPropertyName))
+        {
+            e.Value = NumberFormat.Plain(e.Value as string);
+            e.ParsingApplied = true;
+        }
+        base.OnCellParsing(e);
+    }
 
     private void Add(DataGridViewColumn col)
     {
@@ -104,6 +173,8 @@ public class AccessGrid : KryptonDataGridView
     {
         foreach (var (property, texts) in _comboTexts)
             list.SetFormatter(property, v => v is not null && texts.TryGetValue(v, out var t) ? t : "");
+        foreach (var (property, format) in _numberFormats)
+            list.SetFormatter(property, v => format(v as string));
         DataSource = list;
         FilterChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -113,6 +184,7 @@ public class AccessGrid : KryptonDataGridView
         DataSource = null;
         Columns.Clear();
         _comboTexts.Clear();
+        _numberFormats.Clear();
         CanEditCell = null;
     }
 
@@ -132,7 +204,7 @@ public class AccessGrid : KryptonDataGridView
     protected override void OnCellPainting(DataGridViewCellPaintingEventArgs e)
     {
         base.OnCellPainting(e);
-        if (e.RowIndex != -1 || e.ColumnIndex < 0 || e.Graphics is null)
+        if (e.RowIndex != -1 || e.ColumnIndex < 0 || e.Graphics is null || !ShowFilters)
             return;
 
         if (!e.Handled)
@@ -162,7 +234,7 @@ public class AccessGrid : KryptonDataGridView
 
     protected override void OnColumnHeaderMouseClick(DataGridViewCellMouseEventArgs e)
     {
-        if (e.ColumnIndex >= 0)
+        if (e.ColumnIndex >= 0 && ShowFilters)
         {
             var cell = GetCellDisplayRectangle(e.ColumnIndex, -1, false);
             var inGlyph = e.X >= cell.Width - GlyphWidth - 4;
@@ -184,6 +256,8 @@ public class AccessGrid : KryptonDataGridView
 
         var col = Columns[columnIndex];
         var prop = col.DataPropertyName;
+        if (prop.Length == 0)
+            return; // an unbound column, e.g. a blank one to write in on the printout
         var menu = new FilterMenu(col.HeaderText, list.DistinctValues(prop), list.HasFilter(prop));
         menu.SortRequested += dir => { list.Sort(prop, dir); col.HeaderCell.SortGlyphDirection = dir == ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending; };
         menu.ClearRequested += () => { list.ClearFilter(prop); OnFilterChanged(); };
@@ -193,7 +267,7 @@ public class AccessGrid : KryptonDataGridView
 
     public void SortSelectedColumn(ListSortDirection dir)
     {
-        if (CurrentCell is null || FilterList is null)
+        if (CurrentCell is null || FilterList is null || Columns[CurrentCell.ColumnIndex].DataPropertyName.Length == 0)
             return;
         var col = Columns[CurrentCell.ColumnIndex];
         FilterList.Sort(col.DataPropertyName, dir);

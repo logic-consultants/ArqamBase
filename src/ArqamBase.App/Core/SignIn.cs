@@ -103,13 +103,28 @@ public static class SignIn
                 SqlLoginName = config.UsesWindowsLogin ? sqlName : new SqlConnectionStringBuilder(config.ConnectionString).UserID,
                 WindowsToken = token,
                 CreatedFirstAdmin = createdAdmin,
-                MustChangePassword = user.MustChangePassword
+                MustChangePassword = user.MustChangePassword,
+                Scopes = ReadScopes(db, user),
             }, SignInProblem.None, "");
         }
         finally
         {
             if (!ok) token?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// A coordinator's departments or a teacher's classes. Before attendance_roles_install.sql has run there is no table,
+    /// and nobody can have one of those roles anyway.
+    /// </summary>
+    private static List<UserScope> ReadScopes(ArqamDbContext db, AppUser user)
+    {
+        if (user.Role is not (AppRole.Coordinator or AppRole.TeacherInCharge)) return [];
+        try
+        {
+            return db.UserScopes.AsNoTracking().Where(s => s.UserName == user.UserName).ToList();
+        }
+        catch (SqlException) { return []; }
     }
 
     /// <summary>Changes the signed-in user's own password.</summary>

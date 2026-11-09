@@ -1,12 +1,19 @@
 using System.ComponentModel;
 using ArqamBase.App.Core;
 using Krypton.Toolkit;
+using Microsoft.EntityFrameworkCore;
 
 namespace ArqamBase.App.Screens;
 
 /// <summary>What a screen gets from the main window.</summary>
 public sealed record ScreenContext(AppConfig Config, UserSession Session, UserSettings Settings, Action<string> OpenScreen, Action ApplyTheme,
     Action<string, object> OpenScreenAt);
+
+/// <summary>A ribbon button of one screen, shown while that screen is active.</summary>
+public sealed record ScreenCommand(string Text, char Glyph, Action Run);
+
+/// <summary>A group of a screen's own ribbon buttons, e.g. "Print".</summary>
+public sealed record ScreenCommandGroup(string Title, params ScreenCommand[] Commands);
 
 /// <summary>
 /// Base for every screen shown as a tab. The ribbon's Records and Sort &amp; filter buttons call these methods on the active screen.
@@ -28,6 +35,10 @@ public class ScreenBase : KryptonPanel
     public virtual string StatusText => "";
     public virtual bool SupportsRecords => false;
     public virtual bool HasChanges => false;
+    /// <summary>Text of the ribbon's New button, e.g. "New family".</summary>
+    public virtual string NewText => "New";
+    /// <summary>The screen's own ribbon groups, added after Records while the screen is active.</summary>
+    public virtual IReadOnlyList<ScreenCommandGroup> Commands => [];
 
     public virtual void NewRecord() { }
     public virtual bool SaveChanges() => true;
@@ -72,6 +83,17 @@ public class ScreenBase : KryptonPanel
 
     /// <summary>Pushes values still being typed into their records, so HasChanges sees them.</summary>
     protected virtual void CommitPendingEdits() { }
+
+    /// <summary>The school's address, phones and pictures from School information, for printouts (the built-in logo if it cannot be read).</summary>
+    protected Printing.SchoolPrint SchoolDetails()
+    {
+        try
+        {
+            using var db = Ctx.Config.CreateContext(Ctx.Session);
+            return Printing.SchoolPrint.From(db.Campuses.AsNoTracking().OrderBy(c => c.Id).FirstOrDefault());
+        }
+        catch (Microsoft.Data.SqlClient.SqlException) { return Printing.SchoolPrint.From(null); }
+    }
 
     protected static KryptonLabel Heading(string text) => new()
     {

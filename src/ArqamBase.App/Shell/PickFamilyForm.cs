@@ -23,6 +23,7 @@ public sealed class PickFamilyForm : KryptonForm
         _families = families;
         Text = title;
         StartPosition = FormStartPosition.CenterParent;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
         Size = new Size(620, 520);
         MinimizeBox = false;
 
@@ -86,7 +87,7 @@ public sealed class PickFamilyForm : KryptonForm
         public override string ToString()
         {
             var kids = string.Join(", ", Family.Students.Where(s => s.OnRoll).Select(s => s.Name));
-            return $"{Family.Id}  ·  {Family.FatherName}  ·  {Family.Mobile}{(kids.Length > 0 ? $"  ·  children: {kids}" : "")}";
+            return $"{Family.Id}  ·  {Family.FatherName}  ·  {Core.NumberFormat.Phone(Family.Mobile)}{(kids.Length > 0 ? $"  ·  children: {kids}" : "")}";
         }
     }
 }

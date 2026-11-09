@@ -6,7 +6,7 @@ namespace ArqamBase.App.Core;
 /// <summary>Ribbon and menu icons drawn from the Windows icon font, tinted with the theme accent.</summary>
 public static class Icons
 {
-    public const char Exit = '';
+    public const char Exit = '', Flag = '', FontBigger = '', FontSmaller = '';
     public const char Add ='', Save = '', Delete = '', Refresh = '', Undo = '',
         Filter = '', Sort = '', Clear = '', Search = '', Print = '', Document = '',
         Home = '', Person = '', People = '', School = '', Up = '', Money = '',
@@ -14,6 +14,7 @@ public static class Icons
         ThemeIcon = '', Settings = '', Grid = '', Menu = '', IdCard = '', Chart = '',
         Send = '', Receipt = '', Book = '', Excel = '', Calculator = '', SortUp = '',
         SortDown = '';
+    public const char Previous = '', Next = '', Cross = '', Clock = '';
 
     private static readonly Dictionary<(char, int, int), Bitmap> Cache = [];
     private static readonly string FontName = PickFont();

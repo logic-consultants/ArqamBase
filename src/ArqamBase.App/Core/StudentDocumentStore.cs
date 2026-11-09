@@ -148,10 +148,13 @@ public sealed partial class StudentDocumentStore(AppConfig config, UserSession s
     }
 
     /// <summary>Opens a document in its usual program (from a temporary copy, so the program does not need access to the shared folder).</summary>
-    public void Open(StudentDocument doc)
+    public void Open(StudentDocument doc) => OpenFile(doc.FilePath);
+
+    /// <summary>Opens a file from the shared folder in its usual program (from a temporary copy).</summary>
+    public void OpenFile(string path)
     {
-        var bytes = ReadBytes(doc.FilePath) ?? throw new DocumentProblem($"The file could not be found:\n{doc.FilePath}");
-        var temp = Path.Combine(Path.GetTempPath(), "ArqamBase", doc.FileName);
+        var bytes = ReadBytes(path) ?? throw new DocumentProblem($"The file could not be found:\n{path}");
+        var temp = Path.Combine(Path.GetTempPath(), "ArqamBase", Path.GetFileName(path));
         Directory.CreateDirectory(Path.GetDirectoryName(temp)!);
         File.WriteAllBytes(temp, bytes);
         Process.Start(new ProcessStartInfo(temp) { UseShellExecute = true });
@@ -275,7 +278,7 @@ public sealed partial class StudentDocumentStore(AppConfig config, UserSession s
         return target;
     }
 
-    private void RunAsUser(Action action)
+    internal void RunAsUser(Action action)
     {
         if (session.WindowsToken is { IsInvalid: false } token)
             WindowsIdentity.RunImpersonated(token, action);

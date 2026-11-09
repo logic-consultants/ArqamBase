@@ -41,7 +41,23 @@ public class Student : ISoftDelete
 
     // Shown in grids; not stored.
     public string? FatherName => Family?.FatherName;
-    public string StatusText => OnRoll ? "On roll" : string.IsNullOrWhiteSpace(LeavingType) ? "Not on roll" : LeavingType!;
+    public string? Mobile => Family?.Mobile;
+    public string? MotherMobile => Family?.MotherMobile;
+    public string? EmergencyNo => Family?.EmergencyNo;
+    public string StatusText => OnRoll ? "Active" : string.IsNullOrWhiteSpace(LeavingType) ? "Not active" : LeavingType!;
+
+    /// <summary>
+    /// The Status drop-down: Active (on roll), Left or Transfer. Sets <see cref="OnRoll"/> and <see cref="LeavingType"/>; not a column itself.
+    /// </summary>
+    public string StatusChoice
+    {
+        get => OnRoll ? "Active" : string.IsNullOrWhiteSpace(LeavingType) ? "Left" : LeavingType!;
+        set
+        {
+            OnRoll = value == "Active";
+            LeavingType = OnRoll ? null : value;
+        }
+    }
 }
 
 /// <summary>A family (table Family). Id is the family ID (FormID).</summary>
@@ -152,4 +168,35 @@ public static class DocumentTypes
     public static string Label(string type) =>
         All.FirstOrDefault(t => t.Type == type).Label
         ?? (type.StartsWith(Other) ? $"Other document {type[Other.Length..]}" : type);
+}
+
+/// <summary>The newest audit log entry for a row.</summary>
+public sealed class LastChange
+{
+    public string? ChangedBy { get; set; }
+    public DateTime ChangedAt { get; set; }
+}
+
+/// <summary>The school's own details (table CampusInfo, one row): name, address, phones, and the pictures used on printouts.</summary>
+public class Campus : ISoftDelete
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+    public string? Address { get; set; }
+    public string? Phone1 { get; set; }
+    public string? Phone2 { get; set; }
+    public string? Phone3 { get; set; }
+    /// <summary>The school logo, printed on the letterhead and ID cards.</summary>
+    public byte[]? Logo { get; set; }
+    /// <summary>A picture stretched across the top of certificates (in place of the drawn letterhead).</summary>
+    public byte[]? LetterheadHeader { get; set; }
+    /// <summary>A picture stretched across the bottom of certificates.</summary>
+    public byte[]? LetterheadFooter { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? CreatedOn { get; set; }
+    public DateTime? DeletedOn { get; set; }
+    public byte[]? RowVersion { get; set; }
+
+    /// <summary>The phone numbers that are filled in, e.g. "046-2516811, 0300-1234567".</summary>
+    public string Phones => string.Join(", ", new[] { Phone1, Phone2, Phone3 }.Where(p => !string.IsNullOrWhiteSpace(p)));
 }

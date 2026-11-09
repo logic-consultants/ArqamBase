@@ -18,6 +18,7 @@ public sealed class ChangePasswordForm : KryptonForm
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
         var t = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(20), BackColor = Color.Transparent };
         var intro = required
             ? "An Admin set a temporary password for you. Choose your own password to continue."

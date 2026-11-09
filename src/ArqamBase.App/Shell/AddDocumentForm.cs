@@ -5,10 +5,10 @@ using Krypton.Toolkit;
 
 namespace ArqamBase.App.Shell;
 
-/// <summary>Picks a file and its type to attach to a student.</summary>
+/// <summary>Picks a file and its type to attach to a student or staff member.</summary>
 public sealed class AddDocumentForm : KryptonForm
 {
-    private readonly KryptonComboBox _type = new() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox _type = new() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly KryptonTextBox _file = new() { Width = 300, ReadOnly = true };
     private readonly KryptonTextBox _notes = new() { Width = 300 };
     private readonly KryptonLabel _error = new() { Text = "", AutoSize = true, MaximumSize = new Size(420, 0), StateCommon = { ShortText = { Color1 = Color.Firebrick } } };
@@ -17,14 +17,17 @@ public sealed class AddDocumentForm : KryptonForm
     public string FilePath => _file.Text;
     public string Notes => _notes.Text;
 
-    public AddDocumentForm(string studentName, string? initialType = null)
+    public AddDocumentForm(string studentName, string? initialType = null) : this(studentName, DocumentTypes.All, initialType) { }
+
+    public AddDocumentForm(string personName, IReadOnlyList<(string Type, string Label)> documentTypes, string? initialType)
     {
-        Text = $"Add picture or document – {studentName}";
+        Text = $"Add picture or document – {personName}";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
+        Shown += (_, _) => Core.Theme.FitButtons(this); // buttons as wide as their text at any font size
 
-        var types = DocumentTypes.All.Select(t => new Inputs.Item<string>(t.Type, t.Label)).ToList();
+        var types = documentTypes.Select(t => new Inputs.Item<string>(t.Type, t.Label)).ToList();
         _type.DataSource = types;
         _type.DisplayMember = nameof(Inputs.Item<string>.Text);
         _type.SelectedItem = types.FirstOrDefault(t => t.Value == initialType) ?? types[0];

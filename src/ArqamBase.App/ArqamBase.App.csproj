@@ -5,17 +5,25 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Krypton.Navigator" Version="105.26.7.201" />
     <PackageReference Include="Krypton.Ribbon" Version="105.26.7.201" />
     <PackageReference Include="Krypton.Toolkit" Version="105.26.7.201" />
+    <PackageReference Include="QuestPDF" Version="2026.9.1" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Resources\logo.png" LogicalName="ArqamBase.logo.png" />
+    <EmbeddedResource Include="Resources\app.ico" LogicalName="ArqamBase.app.ico" />
+    <!-- Kept for later use: the logo as supplied (small), and the school name in Urdu. -->
+    <None Include="Resources\logo-small.jpg" />
+    <None Include="Resources\name-urdu.png" />
   </ItemGroup>
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>

@@ -17,7 +17,7 @@ public static class SalaryVouchers
         {
             page.Size(PageSizes.A5.Landscape());
             page.Margin(10, Unit.Millimetre);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9.5f));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(9.5f));
             page.Header().PaddingBottom(6).Element(c => PrintKit.Letterhead(c, schoolName, school));
             page.Content().Column(col =>
             {

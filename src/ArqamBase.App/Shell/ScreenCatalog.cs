@@ -37,9 +37,10 @@ public static class ScreenCatalog
         new("coa", "Chart of accounts", "Accounts", Icons.Book, 8),
         new("accledger", "Account ledger", "Accounts", Icons.Ledger, 8),
 
-        new("messages", "WhatsApp & email", "Messages", Icons.Chat, 5, "frmUnpaidWhatsApp, frmWhatsAppsend", c => new MessagesScreen(c), AdminOnly: true),
+        new("messages", "WhatsApp, email & SMS", "Messages", Icons.Chat, 5, "frmUnpaidWhatsApp, frmWhatsAppsend", c => new MessagesScreen(c), AdminOnly: true),
         new("messagetemplates", "Message templates", "Messages", Icons.Document, 5, Create: c => new MessageTemplatesScreen(c), AdminOnly: true),
         new("messagesettings", "Message settings", "Messages", Icons.Settings, 5, Create: c => new MessageSettingsScreen(c), AdminOnly: true),
+        new("googlecontacts", "Google Contacts", "Messages", Icons.People, 5, "GoogleContacts, modGoogleContacts", c => new GoogleContactsScreen(c), AdminOnly: true),
 
         new("reports", "Reports centre", "Reports", Icons.Chart, 4, "the Access reports", c => new ReportsScreen(c)),
 

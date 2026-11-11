@@ -19,6 +19,8 @@
     <!-- Kept for later use: the logo as supplied (small), and the school name in Urdu. -->
     <None Include="Resources\logo-small.jpg" />
     <None Include="Resources\name-urdu.png" />
+    <!-- Fonts loaded by the app itself (Core/AppFonts.cs): Revue-Thin, Lato, Oswald, Playfair Display (SIL OFL) and Jameel Noori Nastaleeq. -->
+    <None Include="Fonts\*.ttf;Fonts\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

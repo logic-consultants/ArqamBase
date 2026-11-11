@@ -40,7 +40,7 @@ public static class Receipts
         {
             page.Size(PageSizes.A4);
             page.Margin(0);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(9));
             page.Content().Column(col =>
             {
                 col.Item().MinHeight(148.5f, Unit.Millimetre).Column(half =>
@@ -74,7 +74,7 @@ public static class Receipts
                 row.ConstantItem(38).Height(46).Image(school.Logo).FitArea();
                 row.RelativeItem().PaddingLeft(8).AlignMiddle().Column(c =>
                 {
-                    c.Item().Text(r.SchoolName.ToUpperInvariant()).FontSize(13).Bold().FontColor(PrintKit.Navy);
+                    c.Item().Text(t => t.SchoolName(r.SchoolName.ToUpperInvariant(), n => n.FontSize(13).Bold().FontColor(PrintKit.Navy)));
                     c.Item().Text(school.AddressLine).FontSize(8).FontColor(Colors.Grey.Darken2);
                 });
             });
@@ -169,11 +169,11 @@ public static class Receipts
             page.ContinuousSize(80, Unit.Millimetre);
             page.MarginHorizontal(4, Unit.Millimetre);
             page.MarginVertical(5, Unit.Millimetre);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(8).FontColor(Colors.Black));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(8).FontColor(Colors.Black));
             page.Content().Column(col =>
             {
                 col.Item().AlignCenter().Width(16, Unit.Millimetre).Height(19, Unit.Millimetre).Image(school.Logo).FitArea();
-                col.Item().PaddingTop(2).AlignCenter().Text(r.SchoolName.ToUpperInvariant()).FontSize(9).Bold();
+                col.Item().PaddingTop(2).AlignCenter().Text(t => t.SchoolName(r.SchoolName.ToUpperInvariant(), n => n.FontSize(9).Bold()));
                 if (school.AddressLine.Length > 0) col.Item().AlignCenter().Text(school.AddressLine).FontSize(7);
                 col.Item().PaddingVertical(4).LineHorizontal(0.75f);
                 col.Item().AlignCenter().Text("FEE RECEIPT").FontSize(11).Bold();

@@ -20,7 +20,7 @@ public static class AdvanceForms
             const float margin = 2;
             page.Size(PageSizes.A4);
             page.Margin(0);
-            page.DefaultTextStyle(x => x.FontFamily("Times New Roman").FontSize(12));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Times New Roman")).FontSize(12));
             page.Header().Element(c =>
             {
                 if (school.Header is { } header) c.Image(header).FitWidth();
@@ -51,7 +51,7 @@ public static class AdvanceForms
             t.Span($"I {title} ");
             t.Span(f.Name).Bold();
             t.Span(" make commitment to pay ");
-            t.Span(f.SchoolName).Bold();
+            t.SchoolName(f.SchoolName, n => n.Bold());
             t.Span(", The sum ");
             t.Span(f.Amount > 0 ? $"Rs {f.Amount:N0}" : Blank).Bold();
             t.Span(". Repayment is to be made in the form of ");

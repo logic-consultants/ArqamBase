@@ -56,8 +56,10 @@ public sealed class FeeLedgerScreen : ScreenBase
     private readonly KryptonLabel _slipName = new() { AutoSize = true };
     private readonly Panel _slipRow = new() { BackColor = Color.Transparent };
     private string? _slipPath;
-    private readonly KryptonCheckBox _whatsApp = new() { Text = "Send receipt on WhatsApp (phase 5)", Enabled = false, AutoSize = true };
-    private readonly KryptonCheckBox _email = new() { Text = "Email receipt (phase 5)", Enabled = false, AutoSize = true };
+    private readonly KryptonCheckBox _whatsApp = new() { Text = "Send receipt on WhatsApp", AutoSize = true };
+    private readonly KryptonCheckBox _email = new() { Text = "Email receipt", AutoSize = true };
+    private readonly KryptonCheckBox _sms = new() { Text = "SMS receipt (text only)", AutoSize = true };
+    private readonly KryptonLabel _sendResult = new() { Text = "", AutoSize = false, Height = Theme.RowHeight * 2 };
     private readonly KryptonButton _clear = new() { Text = "Clear" }, _saveReceipt = new() { Text = "Save receipt" };
     private readonly Card _receiveCard = new("Receive fee");
 
@@ -184,8 +186,9 @@ public sealed class FeeLedgerScreen : ScreenBase
                 new("Challan", Icons.Print, PrintChallan),
                 new("Ledger", Icons.Document, PrintLedger)),
             new("Send",
-                new("WhatsApp", Icons.Chat, () => NotYet("Sending WhatsApp messages comes with the Messages screens (phase 5).")),
-                new("Email", Icons.Mail, () => NotYet("Sending email comes with the Messages screens (phase 5)."))),
+                new("WhatsApp", Icons.Chat, () => SendMessage(MessageChannel.WhatsApp)),
+                new("Email", Icons.Mail, () => SendMessage(MessageChannel.Email)),
+                new("SMS", Icons.Send, () => SendMessage(MessageChannel.Sms))),
         ];
         SizeControls();
         Theme.Changed += OnThemeChanged;
@@ -233,6 +236,8 @@ public sealed class FeeLedgerScreen : ScreenBase
         fields.Add("Receipt paper", _paper);
         fields.Add("", _whatsApp, 2);
         fields.Add("", _email, 2);
+        fields.Add("", _sms, 2);
+        fields.Add("", _sendResult, 2);
         var buttons = new Panel { Height = Theme.RowHeight + 10, BackColor = Color.Transparent };
         _clear.Dock = DockStyle.Left;
         _saveReceipt.Dock = DockStyle.Right;
@@ -855,6 +860,8 @@ public sealed class FeeLedgerScreen : ScreenBase
                 var slipForPrint = online && _slipPath is { } path ? FeeReceiptFileStore.ForPrinting(path, ReadLocal(path)) : (null, null);
                 ShowReceipt(receiptNo, date, mode, ticked, stillDue, balanceBefore, slipForPrint);
             }
+            if (_whatsApp.Checked || _email.Checked || _sms.Checked)
+                _ = SendReceiptAsync(receiptNo, date, mode, ticked.ToList(), _familyUnpaid.Where(c => !c.IsDeleted && !c.Paid && students.Contains(c.StudentId)).ToList(), balanceBefore);
             _ = LoadStudentAsync(_student.Id, askToSave: false);
         }
         catch (Microsoft.Data.SqlClient.SqlException ex)
@@ -1034,6 +1041,97 @@ public sealed class FeeLedgerScreen : ScreenBase
         if (Save()) _ = LoadStudentAsync(_student!.Id, askToSave: false);
     }
 
+    // ----- Sending -----
+
+    /// <summary>Sends a receipt just saved, as the boxes under it ask. The result shows under the boxes, so the next receipt can start at once.</summary>
+    private async Task SendReceiptAsync(int receiptNo, DateTime date, CollectionType? mode, List<FeeChallan> challans, List<FeeChallan> stillDue, int? balanceBefore)
+    {
+        var channels = new[] { (_whatsApp, MessageChannel.WhatsApp), (_email, MessageChannel.Email), (_sms, MessageChannel.Sms) }
+            .Where(c => c.Item1.Checked).Select(c => c.Item2).ToList();
+        if (MessageOut.Problem(Ctx.Config, MessageSettings.Load(), channels) is { } problem)
+        {
+            ShowSendResult(false, $"Receipt {receiptNo} not sent. {problem}");
+            return;
+        }
+        ShowSendResult(true, $"Sending receipt {receiptNo}…");
+        try
+        {
+            var row = await Task.Run(ReceiptMessage(receiptNo, date, mode, challans, stillDue, balanceBefore));
+            var (ok, result) = await MessageOut.SendAsync(Ctx.Config, Ctx.Session, row, channels);
+            if (!IsDisposed) ShowSendResult(ok, $"Receipt {receiptNo}: {result}");
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or InvalidOperationException or IOException)
+        {
+            if (!IsDisposed) ShowSendResult(false, $"Receipt {receiptNo} not sent: {ex.GetBaseException().Message}");
+        }
+    }
+
+    private void ShowSendResult(bool ok, string text)
+    {
+        _sendResult.Text = text.Replace("\n", "  ");
+        _sendResult.StateCommon.ShortText.Color1 = ok ? Theme.Good : Theme.Error;
+    }
+
+    /// <summary>The receipt as a message to the parents, with the receipt (A4) attached. Built on a background thread: it reads the database.</summary>
+    private Func<MessageRow> ReceiptMessage(int receiptNo, DateTime date, CollectionType? mode, List<FeeChallan> challans, List<FeeChallan> stillDue, int? balanceBefore)
+    {
+        var receipt = BuildReceipt(receiptNo, date, mode, challans, stillDue, balanceBefore, (null, null));
+        var details = SchoolDetails();
+        var cc = challans.Select(c => c.StudentId).FirstOrDefault(id => id is not null) ?? _student?.Id ?? 0;
+        var values = new Dictionary<string, string>
+        {
+            ["ReceiptNo"] = $"{receiptNo}", ["Date"] = date.ToString("dd/MM/yyyy"), ["Mode"] = mode?.Name?.Trim() ?? "",
+            ["Amount"] = challans.Sum(c => c.ReceivedAmount ?? c.Total).ToString("N0"),
+            ["Periods"] = string.Join(", ", challans.Select(c => c.Period?.Trim()).Where(p => !string.IsNullOrEmpty(p)).Distinct()),
+        };
+        return () =>
+        {
+            using var db = Ctx.Config.CreateContext(Ctx.Session);
+            return MessageData.ForStudent(db, MessageKind.FeeReceipt, cc, $"Receipt {receiptNo} {date:dd/MM/yyyy}", values,
+                $"Receipt {receiptNo}.pdf", () => Printing.Receipts.Create(receipt, details, Printing.ReceiptPaper.A4));
+        };
+    }
+
+    /// <summary>
+    /// The ribbon's WhatsApp and Email: the receipt when a paid challan is selected, else the fee voucher of the unpaid challans,
+    /// else a message of your own. The message can be changed before it goes.
+    /// </summary>
+    private void SendMessage(MessageChannel channel)
+    {
+        if (_student is not { } s || _db is null) { NotYet("Find a student first."); return; }
+        Func<MessageRow> build;
+        if (CurrentChallan() is { Paid: true, IsDeleted: false, ReceiptNo: int no, ReceivedOn: DateTime date } c)
+        {
+            var mode = TypeOf(c);
+            try
+            {
+                var (challans, stillDue) = LoadReceipt(c, no, date, mode);
+                build = ReceiptMessage(no, date, mode, challans, stillDue, balanceBefore: null);
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex) { Program.ShowError("Could not read the receipt.", ex); return; }
+        }
+        else
+            build = () =>
+            {
+                using var db = Ctx.Config.CreateContext(Ctx.Session);
+                return MessageData.FeeVoucherFor(db, Ctx.Config, s.Id) ?? MessageData.ForStudent(db, MessageKind.Message, s.Id, "Ledger");
+            };
+        _ = SendMessageForm.ShowAsync(this, Ctx, build, channel);
+    }
+
+    /// <summary>The challans paid by the receipt <paramref name="c"/> belongs to, and what the same students owe now.</summary>
+    private (List<FeeChallan> Challans, List<FeeChallan> StillDue) LoadReceipt(FeeChallan c, int no, DateTime date, CollectionType? mode)
+    {
+        var paid = _db!.FeeChallans.AsNoTracking().Where(x => x.Paid && x.ReceiptNo == no && x.ReceivedOn == date);
+        var challans = (mode is null ? paid.Where(x => x.CollectionTypeId == c.CollectionTypeId) : InSeries(paid, mode))
+            .OrderBy(x => x.StudentId).ThenBy(x => x.IssueDate).ToList();
+        // What the same students owe now (a reprint cannot know what they owed when it was first printed).
+        var students = challans.Select(x => x.StudentId).Distinct().ToList();
+        var stillDue = _db.FeeChallans.AsNoTracking().Where(x => !x.Paid && students.Contains(x.StudentId))
+            .OrderBy(x => x.StudentId).ThenBy(x => x.IssueDate).ToList();
+        return (challans, stillDue);
+    }
+
     // ----- Printing -----
 
     private void ReprintReceipt()
@@ -1046,13 +1144,7 @@ public sealed class FeeLedgerScreen : ScreenBase
         var mode = TypeOf(c);
         try
         {
-            var paid = _db.FeeChallans.AsNoTracking().Where(x => x.Paid && x.ReceiptNo == no && x.ReceivedOn == date);
-            var challans = (mode is null ? paid.Where(x => x.CollectionTypeId == c.CollectionTypeId) : InSeries(paid, mode))
-                .OrderBy(x => x.StudentId).ThenBy(x => x.IssueDate).ToList();
-            // What the same students owe now (a reprint cannot know what they owed when it was first printed).
-            var students = challans.Select(x => x.StudentId).Distinct().ToList();
-            var stillDue = _db.FeeChallans.AsNoTracking().Where(x => !x.Paid && students.Contains(x.StudentId))
-                .OrderBy(x => x.StudentId).ThenBy(x => x.IssueDate).ToList();
+            var (challans, stillDue) = LoadReceipt(c, no, date, mode);
             ShowReceipt(no, date, mode, challans, stillDue, balanceBefore: null, StoredSlipForPrint(mode, no, date));
         }
         catch (Microsoft.Data.SqlClient.SqlException ex)
@@ -1086,6 +1178,15 @@ public sealed class FeeLedgerScreen : ScreenBase
     private void ShowReceipt(int receiptNo, DateTime date, CollectionType? mode, List<FeeChallan> challans, List<FeeChallan> stillDue, int? balanceBefore,
         (byte[]? Picture, string? Note) slip)
     {
+        var receipt = BuildReceipt(receiptNo, date, mode, challans, stillDue, balanceBefore, slip);
+        var details = SchoolDetails();
+        var paper = Ctx.Settings.ReceiptPaper;
+        PrintPreviewForm.Show(this, () => Printing.Receipts.Create(receipt, details, paper), $"Receipt {receiptNo}", $"Receipt {receiptNo}");
+    }
+
+    private Printing.ReceiptPrint BuildReceipt(int receiptNo, DateTime date, CollectionType? mode, List<FeeChallan> challans, List<FeeChallan> stillDue, int? balanceBefore,
+        (byte[]? Picture, string? Note) slip)
+    {
         var ids = challans.Concat(stillDue).Select(c => c.StudentId ?? 0).Distinct().ToList();
         var students = _students.Where(s => ids.Contains(s.Cc)).ToDictionary(s => s.Cc);
         var lines = challans.Select(c =>
@@ -1101,9 +1202,7 @@ public sealed class FeeLedgerScreen : ScreenBase
         var receipt = new Printing.ReceiptPrint(receiptNo, date, mode?.Name ?? "", by, school,
             challans.Select(c => c.Remarks).FirstOrDefault(r => !string.IsNullOrWhiteSpace(r)), lines, due, DateTime.Today, balanceBefore,
             slip.Picture, slip.Note);
-        var details = SchoolDetails();
-        var paper = Ctx.Settings.ReceiptPaper;
-        PrintPreviewForm.Show(this, () => Printing.Receipts.Create(receipt, details, paper), $"Receipt {receiptNo}", $"Receipt {receiptNo}");
+        return receipt;
     }
 
     private void PrintLedger()

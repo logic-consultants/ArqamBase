@@ -105,10 +105,18 @@ public static class Inputs
     public static KryptonTextBox Text(BindingSource bs, string property, bool readOnly = false, bool rightToLeft = false, bool multiline = false)
     {
         var box = new KryptonTextBox { ReadOnly = readOnly, Multiline = multiline, Height = multiline ? 54 : 25 };
-        if (rightToLeft) box.RightToLeft = RightToLeft.Yes;
+        if (rightToLeft) UrduBox(box);
         var b = box.DataBindings.Add(nameof(box.Text), bs, property, true, DataSourceUpdateMode.OnValidation, "");
         b.DataSourceNullValue = null;
         return box;
+    }
+
+    /// <summary>Makes a box for Urdu: reads from the right, in Jameel Noori Nastaleeq (taller, so the letters are not cut).</summary>
+    public static void UrduBox(KryptonTextBox box)
+    {
+        box.RightToLeft = RightToLeft.Yes;
+        box.StateCommon.Content.Font = AppFonts.UrduFont(Theme.BaseFont);
+        if (!box.Multiline) box.Height = Math.Max(box.Height, AppFonts.UrduFont(Theme.BaseFont).Height + 8);
     }
 
     /// <summary>A phone number box: shows (0300) 123-4321, saves the digits only.</summary>

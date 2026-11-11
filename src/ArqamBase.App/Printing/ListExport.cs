@@ -69,7 +69,7 @@ public sealed class ListExport
         {
             page.Size(PageSizes.A4.Landscape());
             page.Margin(12, Unit.Millimetre);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(8));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(8));
             page.Header().PaddingBottom(6).Row(r =>
             {
                 r.RelativeItem().Text(Title).FontSize(13).Bold().FontColor(PrintKit.Navy);

@@ -25,7 +25,7 @@ public static class DefaulterLetters
                     const float margin = 2;
                     page.Size(PageSizes.A4);
                     page.Margin(0);
-                    page.DefaultTextStyle(x => x.FontFamily("Times New Roman").FontSize(12));
+                    page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Times New Roman")).FontSize(12));
                     page.Header().Element(c =>
                     {
                         if (school.Header is { } header) c.Image(header).FitWidth();

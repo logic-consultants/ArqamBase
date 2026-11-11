@@ -88,7 +88,7 @@ public sealed class FamilyScreen : ScreenBase
         [
             new("Family",
                 new("Fee ledger", Icons.Ledger, OpenLedger),
-                new("Send WhatsApp", Icons.Chat, () => NotYet("Sending WhatsApp messages comes with the Messages screens.")),
+                new("Send WhatsApp", Icons.Chat, SendWhatsApp),
                 new("Flag family", Icons.Flag, ToggleFlag)),
             new("Print",
                 new("Family challan", Icons.Print, () => NotYet("Printing the family challan comes with the Fees screens.")),
@@ -283,6 +283,18 @@ public sealed class FamilyScreen : ScreenBase
         bool IsTotal = false);
 
     /// <summary>The fee ledger of the selected child, or of the first child in school.</summary>
+    /// <summary>A message of your own to the family (wording from Message templates › Own message).</summary>
+    private void SendWhatsApp()
+    {
+        if (_current is not { Id: not 0 } f) { NotYet("Select a saved family first."); return; }
+        var id = f.Id;
+        _ = Shell.SendMessageForm.ShowAsync(this, Ctx, () =>
+        {
+            using var db = Ctx.Config.CreateContext(Ctx.Session);
+            return MessageData.ForFamily(db, id);
+        }, MessageChannel.WhatsApp);
+    }
+
     private void OpenLedger()
     {
         var cc = _children.CurrentRow?.DataBoundItem is ChildRow { CC: int c } ? c : _current?.Students.Where(s => s.OnRoll).OrderBy(s => s.Name).Select(s => (int?)s.Id).FirstOrDefault();

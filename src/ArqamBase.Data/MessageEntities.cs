@@ -29,3 +29,18 @@ public class MessageLog
     public string Status { get; set; } = "";
     public string? Detail { get; set; }
 }
+
+/// <summary>The Google account the student contacts are kept in, and its sign-in (table tblGoogleOAuth, one row).</summary>
+public class GoogleOAuth
+{
+    public int Id { get; set; }
+    public string? GoogleAccount { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+    public string? RefreshToken { get; set; }
+    public string? AccessToken { get; set; }
+    public string? TokenType { get; set; }
+    public string? Scope { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public DateTime? LastUpdated { get; set; }
+}

@@ -19,7 +19,7 @@ public static class IdCards
                     page.Size(PageSizes.A4);
                     page.MarginVertical(12, Unit.Millimetre);
                     page.MarginHorizontal(15, Unit.Millimetre);
-                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(7));
+                    page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(7));
                     page.Content().AlignCenter().Column(col =>
                     {
                         foreach (var pair in chunk.Chunk(PerRow))
@@ -42,7 +42,7 @@ public static class IdCards
                 r.ConstantItem(26).Image(school.Logo).FitArea();
                 r.RelativeItem().PaddingLeft(6).AlignMiddle().Column(c =>
                 {
-                    c.Item().Text(s.SchoolName.ToUpperInvariant()).FontSize(7.5f).Bold().FontColor(Colors.White).ClampLines(2);
+                    c.Item().Text(t => { t.ClampLines(2); t.SchoolName(s.SchoolName.ToUpperInvariant(), n => n.FontSize(7.5f).Bold().FontColor(Colors.White)); });
                     c.Item().Text("STUDENT ID CARD").FontSize(6).Bold().FontColor(PrintKit.Yellow).LetterSpacing(0.1f);
                 });
             });

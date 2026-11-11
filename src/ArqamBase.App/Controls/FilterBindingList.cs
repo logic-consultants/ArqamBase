@@ -10,8 +10,11 @@ public interface IFilterableList : IBindingList
     IEnumerable<object> AllObjects { get; }
     bool HasFilter(string property);
     bool AnyFilter { get; }
-    IReadOnlyList<string> DistinctValues(string property);
-    void SetFilter(string property, HashSet<string>? allowedValues, string? contains);
+    /// <summary>Whether a column filters as text, a number or a date.</summary>
+    FilterKind KindOf(string property);
+    ColumnFilter? FilterOf(string property);
+    /// <summary>Sets a column's filter; null clears it.</summary>
+    void SetFilter(string property, ColumnFilter? filter);
     void ClearFilter(string property);
     void ClearAllFilters();
     void SetFormatter(string property, Func<object?, string> formatter);
@@ -25,7 +28,7 @@ public interface IFilterableList : IBindingList
 public sealed class FilterBindingList<T> : BindingList<T>, IFilterableList where T : class
 {
     private readonly List<T> _all;
-    private readonly Dictionary<string, (HashSet<string>? Allowed, string? Contains)> _filters = [];
+    private readonly Dictionary<string, ColumnFilter> _filters = [];
     private readonly Dictionary<string, Func<object?, string>> _formatters = [];
     private readonly PropertyDescriptorCollection _props = TypeDescriptor.GetProperties(typeof(T));
     private PropertyDescriptor? _sortProp;
@@ -90,15 +93,22 @@ public sealed class FilterBindingList<T> : BindingList<T>, IFilterableList where
         };
     }
 
-    public IReadOnlyList<string> DistinctValues(string property) =>
-        _all.Select(i => Format(i, property)).Distinct().OrderBy(s => s, StringComparer.CurrentCultureIgnoreCase).ToList();
-
-    public void SetFilter(string property, HashSet<string>? allowedValues, string? contains)
+    /// <summary>Numbers and dates filter on their value; everything else, and any column shown through a formatter, on its text.</summary>
+    public FilterKind KindOf(string property)
     {
-        if (allowedValues is null && string.IsNullOrWhiteSpace(contains))
-            _filters.Remove(property);
-        else
-            _filters[property] = (allowedValues, string.IsNullOrWhiteSpace(contains) ? null : contains.Trim());
+        if (_formatters.ContainsKey(property) || _props[property] is not { } p) return FilterKind.Text;
+        var type = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
+        if (type == typeof(DateTime)) return FilterKind.Date;
+        return Type.GetTypeCode(type) is TypeCode.Byte or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64 or TypeCode.UInt16 or TypeCode.UInt32
+            or TypeCode.UInt64 or TypeCode.Decimal or TypeCode.Double or TypeCode.Single ? FilterKind.Number : FilterKind.Text;
+    }
+
+    public ColumnFilter? FilterOf(string property) => _filters.GetValueOrDefault(property);
+
+    public void SetFilter(string property, ColumnFilter? filter)
+    {
+        if (filter is null) _filters.Remove(property);
+        else _filters[property] = filter;
         Rebuild();
     }
 
@@ -125,14 +135,9 @@ public sealed class FilterBindingList<T> : BindingList<T>, IFilterableList where
     {
         if (_search is not null && !_search(item))
             return false;
-        foreach (var (property, (allowed, contains)) in _filters)
-        {
-            var text = Format(item, property);
-            if (allowed is not null && !allowed.Contains(text))
+        foreach (var (property, filter) in _filters)
+            if (!filter.Matches(KindOf(property) == FilterKind.Text ? Format(item, property) : _props[property]?.GetValue(item)))
                 return false;
-            if (contains is not null && !text.Contains(contains, StringComparison.CurrentCultureIgnoreCase))
-                return false;
-        }
         return true;
     }
 

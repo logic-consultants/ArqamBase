@@ -20,7 +20,7 @@ public static class SalaryPrints
         {
             page.Size(PageSizes.A4);
             page.Margin(15, Unit.Millimetre);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(10));
             page.Header().PaddingBottom(10).Element(c => PrintKit.Letterhead(c, schoolName, school));
             page.Content().Column(col =>
             {
@@ -65,10 +65,10 @@ public static class SalaryPrints
         {
             page.Size(PageSizes.A4.Landscape());
             page.Margin(15, Unit.Millimetre);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(10));
             page.Content().Column(col =>
             {
-                col.Item().AlignCenter().Text(schoolName.ToUpperInvariant()).FontSize(14).Bold().FontColor(PrintKit.Navy);
+                col.Item().AlignCenter().Text(t => t.SchoolName(schoolName.ToUpperInvariant(), n => n.FontSize(14).Bold().FontColor(PrintKit.Navy)));
                 col.Item().AlignCenter().Text($"Summary ({month})").FontSize(12).Bold();
                 col.Item().AlignCenter().Text("Salaries and Wages");
                 col.Item().PaddingTop(12).Row(r =>

@@ -32,6 +32,7 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<StaffSchedule> StaffSchedules => Set<StaffSchedule>();
     public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
     public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
+    public DbSet<GoogleOAuth> GoogleOAuth => Set<GoogleOAuth>();
     public DbSet<UserScope> UserScopes => Set<UserScope>();
     public DbSet<SalaryHead> SalaryHeads => Set<SalaryHead>();
     public DbSet<SalaryLine> SalaryLines => Set<SalaryLine>();
@@ -317,6 +318,17 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Subject).HasMaxLength(200);
             e.Property(x => x.UpdatedBy).HasMaxLength(128);
             e.Property(x => x.UpdatedOn).HasColumnType("datetime2(0)");
+        });
+
+        b.Entity<GoogleOAuth>(e =>
+        {
+            e.ToTable("tblGoogleOAuth");
+            e.Property(x => x.Id).HasColumnName("OAuthID").ValueGeneratedNever();
+            e.Property(x => x.GoogleAccount).HasMaxLength(255);
+            e.Property(x => x.ClientId).HasColumnName("ClientID").HasMaxLength(255);
+            e.Property(x => x.TokenType).HasMaxLength(255);
+            e.Property(x => x.ExpiresAt).HasColumnType("datetime");
+            e.Property(x => x.LastUpdated).HasColumnType("datetime");
         });
 
         b.Entity<MessageLog>(e =>

@@ -258,10 +258,10 @@ public class AccessGrid : KryptonDataGridView
         var prop = col.DataPropertyName;
         if (prop.Length == 0)
             return; // an unbound column, e.g. a blank one to write in on the printout
-        var menu = new FilterMenu(col.HeaderText, list.DistinctValues(prop), list.HasFilter(prop));
+        var menu = new FilterMenu(col.HeaderText, list.KindOf(prop), list.FilterOf(prop), list.HasFilter(prop));
         menu.SortRequested += dir => { list.Sort(prop, dir); col.HeaderCell.SortGlyphDirection = dir == ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending; };
         menu.ClearRequested += () => { list.ClearFilter(prop); OnFilterChanged(); };
-        menu.FilterRequested += (allowed, contains) => { list.SetFilter(prop, allowed, contains); OnFilterChanged(); };
+        menu.FilterRequested += filter => { list.SetFilter(prop, filter); OnFilterChanged(); };
         menu.Show(this, location);
     }
 

@@ -14,9 +14,11 @@ static class Program
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ShowError("Something went wrong", e.Exception);
 
+        AppFonts.Load(); // the fonts in the Fonts folder, before any font is made
         Printing.PrintKit.Init();
         var config = AppConfig.Load();
         var settings = UserSettings.Load();
+        Printing.PrintKit.ApplySettings(settings);
 
         // The theme manager must exist before the sign-in window so it is themed too.
         KryptonManager.UseAdministratorSuffix = false;

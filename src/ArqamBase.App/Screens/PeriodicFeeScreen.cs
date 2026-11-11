@@ -96,7 +96,12 @@ public sealed class PeriodicFeeScreen : ScreenBase
                  })
             choice.Changed += () => SetAll(choice, set);
         _skipFlagged.CheckedChanged += (_, _) => Compute();
-        _message.TextChanged += (_, _) => _message.RightToLeft = HasUrdu(_message.Text) ? RightToLeft.Yes : RightToLeft.No;
+        _message.TextChanged += (_, _) =>
+        {
+            var urdu = HasUrdu(_message.Text);
+            _message.RightToLeft = urdu ? RightToLeft.Yes : RightToLeft.No;
+            _message.StateCommon.Content.Font = urdu ? AppFonts.UrduFont(Theme.BaseFont) : null;
+        };
 
         var fields = new FieldPanel(6);
         fields.Add("Period", _period);
@@ -149,7 +154,7 @@ public sealed class PeriodicFeeScreen : ScreenBase
             new("Steps", new ScreenCommand("Preview", Icons.Search, () => _ = PreviewAsync()), new ScreenCommand("Generate", Icons.Refresh, Generate)),
             new("After",
                 new ScreenCommand("Print challans", Icons.Print, () => Ctx.OpenScreenAt("challans", Period)),
-                new ScreenCommand("Send WhatsApp", Icons.Chat, () => Inform("Sending challans on WhatsApp comes with the Messages screens (phase 5)."))),
+                new ScreenCommand("Send WhatsApp", Icons.Chat, SendVouchers)),
             new("Undo", new ScreenCommand("Remove batch", Icons.Delete, RemoveBatch)),
         ];
         HandleCreated += (_, _) => _ = LoadListsAsync();
@@ -570,6 +575,13 @@ public sealed class PeriodicFeeScreen : ScreenBase
 
     private void Inform(string message) =>
         KryptonMessageBox.Show(this, message, "Periodic fee update", KryptonMessageBoxButtons.OK, KryptonMessageBoxIcon.Information);
+
+    /// <summary>Opens Messages on fee vouchers: every student with unpaid challans, the voucher attached (Admin only, like the Messages screen).</summary>
+    private void SendVouchers()
+    {
+        if (!Ctx.Session.IsAdmin) { Inform("Only an Admin can send fee vouchers on WhatsApp."); return; }
+        Ctx.OpenScreenAt("messages", MessageKind.FeeVoucher);
+    }
 
     /// <summary>A tick box with an amount beside it: "include this fee, Rs …".</summary>
     private sealed class FeeChoice : Panel

@@ -1,3 +1,4 @@
+using ArqamBase.App.Core;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -50,21 +51,59 @@ public static class PrintKit
     }
 
     /// <summary>
-    /// Call once at start. QuestPDF's Community licence is free for organisations with under USD 1M annual revenue.
+    /// Call once at start, after <see cref="AppFonts.Load"/>. QuestPDF's Community licence is free for organisations with under USD 1M annual revenue.
     /// The printouts use Arial and Times New Roman, which every Windows PC has; the job offer letter also uses Calibri and Constantia.
+    /// The fonts bundled with the app (Revue-Thin, Lato, Oswald, Playfair Display, Jameel Noori Nastaleeq) are registered too.
     /// </summary>
     public static void Init()
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var fonts = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
-        foreach (var file in new[] { "arial.ttf", "arialbd.ttf", "ariali.ttf", "times.ttf", "timesbd.ttf", "timesi.ttf", "tahoma.ttf", "calibri.ttf", "calibrib.ttf", "constan.ttf" })
+        foreach (var file in new[] { "arial.ttf", "arialbd.ttf", "ariali.ttf", "times.ttf", "timesbd.ttf", "timesi.ttf", "tahoma.ttf", "calibri.ttf", "calibrib.ttf",
+                     "constan.ttf", "constanb.ttf", "constani.ttf", "segoeui.ttf", "segoeuib.ttf", "verdana.ttf", "verdanab.ttf", "cambria.ttc", "cambriab.ttf", "micross.ttf" })
         {
             var path = Path.Combine(fonts, file);
             if (!File.Exists(path)) continue;
             using var stream = File.OpenRead(path);
             QuestPDF.Drawing.FontManager.RegisterFontFromStream(stream);
         }
+        foreach (var bytes in AppFonts.BundledFiles)
+        {
+            using var stream = new MemoryStream(bytes);
+            QuestPDF.Drawing.FontManager.RegisterFontFromStream(stream);
+        }
     }
+
+    /// <summary>Font of the school name on printouts (Settings › Printouts).</summary>
+    public static string SchoolNameFont { get; private set; } = AppFonts.SchoolNameDefault;
+    private static string? _textFont;
+
+    /// <summary>Takes the printout fonts from the user's settings.</summary>
+    public static void ApplySettings(UserSettings settings)
+    {
+        SchoolNameFont = AppFonts.Has(settings.SchoolNameFont) ? settings.SchoolNameFont : AppFonts.SchoolNameDefault;
+        _textFont = settings.PrintFont is { } f && AppFonts.Has(f) ? f : null;
+    }
+
+    /// <summary>The text font for a printout: the one chosen in Settings, else the printout's own <paramref name="designed"/> font.</summary>
+    public static string TextFont(string designed) => _textFont ?? designed;
+
+    /// <summary>
+    /// Writes the school name in the school-name font, styled by <paramref name="style"/>. The spaces are written in Arial,
+    /// because Revue-Thin's space is very wide in PDFs and pushed "SCHOOL" onto its own line.
+    /// </summary>
+    public static void SchoolName(this TextDescriptor text, string name, Action<TextSpanDescriptor> style)
+    {
+        var words = name.Split(' ');
+        for (var i = 0; i < words.Length; i++)
+        {
+            if (i > 0) style(text.Span(" ").FontFamily("Arial"));
+            if (words[i].Length > 0) style(text.Span(words[i]).FontFamily(SchoolNameFont, "Arial"));
+        }
+    }
+
+    /// <summary>Urdu text in Jameel Noori Nastaleeq.</summary>
+    public static T Urdu<T>(this T text) where T : TextSpanDescriptor { text.FontFamily(AppFonts.Urdu, "Arial"); return text; }
 
     public static string Date(DateTime? d) => d?.ToString("dd/MM/yyyy") ?? "";
 
@@ -78,7 +117,7 @@ public static class PrintKit
                 row.ConstantItem(70).Height(85).Image(school.Logo).FitArea();
                 row.RelativeItem().PaddingLeft(14).AlignMiddle().Column(c =>
                 {
-                    c.Item().Text(schoolName.ToUpperInvariant()).FontSize(20).Bold().FontColor(Navy);
+                    c.Item().Text(t => t.SchoolName(schoolName.ToUpperInvariant(), n => n.FontSize(20).Bold().FontColor(Navy)));
                     c.Item().Text(school.AddressLine).FontSize(11).FontColor(Colors.Grey.Darken2);
                 });
             });

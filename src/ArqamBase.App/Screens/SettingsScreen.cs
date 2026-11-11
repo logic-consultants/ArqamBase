@@ -1,4 +1,5 @@
 using ArqamBase.App.Core;
+using ArqamBase.App.Printing;
 using Krypton.Toolkit;
 
 namespace ArqamBase.App.Screens;
@@ -59,11 +60,60 @@ public sealed class SettingsScreen : ScreenBase
         account.Panel.Controls.Add(accountFlow);
 
         flow.Controls.Add(appearance);
+        flow.Controls.Add(PrintoutSettings());
         flow.Controls.Add(account);
         flow.Controls.Add(new KryptonLabel { AutoSize = true, Text = "WhatsApp and email accounts are on the Message settings screen, under Messages." });
 
         Controls.Add(flow);
         Controls.Add(Heading("Settings"));
+    }
+
+    private const string AsDesigned = "Each printout's own (Arial or Times New Roman)";
+
+    /// <summary>Fonts of the printouts: the school name (Revue-Thin unless changed) and the text.</summary>
+    private Control PrintoutSettings()
+    {
+        var group = new KryptonGroupBox { Text = "Printouts", Width = 560, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+        var fields = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent, Padding = new Padding(6) };
+
+        var schoolFont = new KryptonComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 330 };
+        schoolFont.Items.AddRange(AppFonts.SchoolNameChoices.Cast<object>().ToArray());
+        schoolFont.SelectedItem = PrintKit.SchoolNameFont;
+        var textFont = new KryptonComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 330 };
+        textFont.Items.Add(AsDesigned);
+        textFont.Items.AddRange(AppFonts.TextChoices.Cast<object>().ToArray());
+        textFont.SelectedItem = Ctx.Settings.PrintFont is { } f && textFont.Items.Contains(f) ? f : AsDesigned;
+
+        var sample = new Label { AutoSize = true, BackColor = Color.Transparent, ForeColor = ColorTranslator.FromHtml(PrintKit.Navy), Padding = new Padding(0, 4, 0, 4) };
+        void ShowSample()
+        {
+            sample.Font = AppFonts.Family(PrintKit.SchoolNameFont) is { } family ? new Font(family, 18f) : Theme.Scaled(1.6f);
+            sample.Text = PrintKit.DefaultSchoolName;
+        }
+        void Changed()
+        {
+            Ctx.Settings.SchoolNameFont = schoolFont.Text;
+            Ctx.Settings.PrintFont = textFont.Text == AsDesigned ? null : textFont.Text;
+            PrintKit.ApplySettings(Ctx.Settings);
+            Persist();
+            ShowSample();
+        }
+        schoolFont.SelectedIndexChanged += (_, _) => Changed();
+        textFont.SelectedIndexChanged += (_, _) => Changed();
+        ShowSample();
+
+        fields.Controls.Add(new KryptonLabel { Text = "School name font", LabelStyle = LabelStyle.BoldControl, AutoSize = true });
+        fields.Controls.Add(schoolFont);
+        fields.Controls.Add(sample);
+        fields.Controls.Add(new KryptonLabel { Text = "Text font", LabelStyle = LabelStyle.BoldControl, AutoSize = true });
+        fields.Controls.Add(textFont);
+        fields.Controls.Add(new KryptonLabel
+        {
+            AutoSize = true, StateCommon = { ShortText = { Color1 = Theme.Muted } },
+            Text = "Used for challans, receipts, certificates, letters and reports.\nUrdu text always prints in Jameel Noori Nastaleeq."
+        });
+        group.Panel.Controls.Add(fields);
+        return group;
     }
 
     /// <summary>Font and text size (10 to 18), with A− and A+ buttons and a sample line.</summary>

@@ -8,10 +8,10 @@ using QuestPDF.Infrastructure;
 
 namespace ArqamBase.App.Core;
 
-public enum MessageKind { StudentAttendance, StaffAttendance, FeeReminder, FeeVoucher, SalaryVoucher }
+public enum MessageKind { StudentAttendance, StaffAttendance, FeeReminder, FeeVoucher, SalaryVoucher, FeeReceipt, Message }
 
 /// <summary>A type of message: its name, the fields it can use, and the wording it starts with.</summary>
-public sealed record MessageType(MessageKind Kind, string Title, string Fields, string Subject, string Body)
+public sealed record MessageType(MessageKind Kind, string Title, string Fields, string Subject, string Body, bool InBulk = true)
 {
     public static readonly IReadOnlyList<MessageType> All =
     [
@@ -30,6 +30,14 @@ public sealed record MessageType(MessageKind Kind, string Title, string Fields, 
         new(MessageKind.SalaryVoucher, "Salary voucher", "{Name} {Post} {Month} {Amount}",
             "Salary voucher: {Month}",
             "Dear *{Name}*\nYour salary voucher for {Month} is attached. Amount paid: Rs *{Amount}*.\n\nRegards,\nSchool Administration"),
+        new(MessageKind.FeeReceipt, "Fee receipt (fee ledger)", "{Father} {Student} {CC} {Class} {ReceiptNo} {Date} {Amount} {Periods} {Mode}",
+            "Fee receipt {ReceiptNo}: {Student} ({CC})",
+            "Dear Mr. *{Father}*\nWe have received Rs *{Amount}* for *{Student}* ({CC}) for {Periods} on {Date}, receipt no. {ReceiptNo}. The receipt is attached.\n\nThank you,\nSchool Administration",
+            InBulk: false),
+        new(MessageKind.Message, "Own message (Students, Family)", "{Father} {Student} {CC} {Class}",
+            "Message from the school",
+            "Dear Mr. *{Father}*\n\n\nRegards,\nSchool Administration",
+            InBulk: false),
     ];
 
     public static MessageType Of(MessageKind kind) => All.First(t => t.Kind == kind);
@@ -109,7 +117,8 @@ public static class MessageData
             MessageKind.StudentAttendance => StudentAttendance(db, wording, date, everyone),
             MessageKind.StaffAttendance => StaffAttendance(db, wording, date, everyone),
             MessageKind.FeeReminder or MessageKind.FeeVoucher => Fees(db, config, kind, wording),
-            _ => SalaryVouchers(db, wording, month),
+            MessageKind.SalaryVoucher => SalaryVouchers(db, wording, month),
+            _ => [],
         };
         var sent = rows.Count == 0 ? [] : LastSent(db, kind);
         foreach (var r in rows)
@@ -205,18 +214,33 @@ public static class MessageData
         return challans.OrderBy(c => c.ClassName).ThenBy(c => c.SectionName).ThenBy(c => c.Name).Select(c =>
         {
             var contact = contacts[c.Cc];
-            var months = c.Lines.Count;
-            var values = new Dictionary<string, string>
-            {
-                ["Father"] = Clean(c.FatherName), ["Student"] = Clean(c.Name), ["CC"] = $"{c.Cc}", ["Class"] = $"{Clean(c.ClassName)} {Clean(c.SectionName)}".Trim(),
-                ["Months"] = $"{months} {(months == 1 ? "month" : "months")}", ["Periods"] = c.Periods, ["Amount"] = c.Total.ToString("N0"),
-                ["DueDate"] = c.DueDate is { } d ? d.ToString("dd/MM/yyyy") : "",
-            };
+            var values = ChallanValues(c);
             var voucher = kind == MessageKind.FeeVoucher;
             return Row(kind, wording, values, c.Cc, values["Student"], values["Class"], $"Rs {values["Amount"]}", c.Periods[..Math.Min(c.Periods.Length, 50)],
                 Pick(contact.WhatsApp, contact.Mobile), contact.Email,
                 voucher ? $"Fee voucher {c.Cc}.pdf" : null, voucher ? () => Challans.Create([c], school, config.ChallanBank, config.ChallanLateFee) : null);
         }).ToList();
+    }
+
+    /// <summary>The fields of a fee reminder or voucher for one student's unpaid challans.</summary>
+    private static Dictionary<string, string> ChallanValues(ChallanPrint c)
+    {
+        var months = c.Lines.Count;
+        return new Dictionary<string, string>
+        {
+            ["Father"] = Clean(c.FatherName), ["Student"] = Clean(c.Name), ["CC"] = $"{c.Cc}", ["Class"] = $"{Clean(c.ClassName)} {Clean(c.SectionName)}".Trim(),
+            ["Months"] = $"{months} {(months == 1 ? "month" : "months")}", ["Periods"] = c.Periods, ["Amount"] = c.Total.ToString("N0"),
+            ["DueDate"] = c.DueDate is { } d ? d.ToString("dd/MM/yyyy") : "",
+        };
+    }
+
+    /// <summary>The fee voucher of one student's unpaid challans, as a message with the voucher attached; null when nothing is unpaid.</summary>
+    public static MessageRow? FeeVoucherFor(ArqamDbContext db, AppConfig config, int cc)
+    {
+        if (FeeChallanData.Load(db, [cc]).FirstOrDefault() is not { } c) return null;
+        var school = voucherSchool(db);
+        return ForStudent(db, MessageKind.FeeVoucher, cc, c.Periods[..Math.Min(c.Periods.Length, 50)], ChallanValues(c),
+            $"Fee voucher {cc}.pdf", () => Challans.Create([c], school, config.ChallanBank, config.ChallanLateFee));
     }
 
     private static SchoolPrint voucherSchool(ArqamDbContext db) => SchoolPrint.From(db.Campuses.AsNoTracking().OrderBy(c => c.Id).FirstOrDefault());
@@ -242,6 +266,47 @@ public static class MessageData
             return Row(MessageKind.SalaryVoucher, wording, values, s.Id, voucher.Name, post, $"Rs {values["Amount"]}", head.Period, s.CellNo, s.Email,
                 $"Salary voucher {s.Id} {month}.pdf", () => Printing.SalaryVouchers.Create(voucher, schoolName, school));
         }).OrderBy(r => r.Name).ToList();
+    }
+
+    /// <summary>
+    /// A message to one student's parents: to the student's WhatsApp number, else the father's mobile, and the student's email.
+    /// The fields {Father} {Student} {CC} {Class} are filled in, with <paramref name="more"/> for the rest.
+    /// </summary>
+    public static MessageRow ForStudent(ArqamDbContext db, MessageKind kind, int cc, string refKey, IReadOnlyDictionary<string, string>? more = null,
+        string? fileName = null, Func<IDocument>? document = null)
+    {
+        var s = db.Students.AsNoTracking().Where(x => x.Id == cc)
+            .Select(x => new { x.Name, x.WhatsApp, x.Email, x.ClassId, x.SectionId, Father = x.Family!.FatherName, Mobile = x.Family!.Mobile }).First();
+        var values = new Dictionary<string, string>
+        {
+            ["Father"] = Clean(s.Father), ["Student"] = Clean(s.Name), ["CC"] = $"{cc}", ["Class"] = ClassText(db, s.ClassId, s.SectionId),
+        };
+        foreach (var (key, value) in more ?? new Dictionary<string, string>()) values[key] = value;
+        return Row(kind, MessageText.Wording(db)[kind], values, cc, values["Student"], values["Class"], "", refKey, Pick(s.WhatsApp, s.Mobile), s.Email, fileName, document);
+    }
+
+    /// <summary>A message to a family: to the father's mobile, else a child's WhatsApp number, and a child's email. {Student} lists the children on roll.</summary>
+    public static MessageRow ForFamily(ArqamDbContext db, int familyId)
+    {
+        var f = db.Families.AsNoTracking().Where(x => x.Id == familyId).Select(x => new { x.FatherName, x.Mobile }).First();
+        var children = db.Students.AsNoTracking().Where(s => s.FamilyId == familyId).OrderByDescending(s => s.OnRoll).ThenBy(s => s.Id)
+            .Select(s => new { s.Id, s.Name, s.OnRoll, s.WhatsApp, s.Email }).ToList();
+        var onRoll = children.Where(c => c.OnRoll).ToList();
+        var values = new Dictionary<string, string>
+        {
+            ["Father"] = Clean(f.FatherName), ["Student"] = string.Join(", ", onRoll.Select(c => Clean(c.Name))),
+            ["CC"] = string.Join(", ", onRoll.Select(c => c.Id)), ["Class"] = "",
+        };
+        var number = Pick(f.Mobile, children.Select(c => c.WhatsApp).FirstOrDefault(w => !string.IsNullOrWhiteSpace(w)));
+        var email = children.Select(c => c.Email).FirstOrDefault(e => !string.IsNullOrWhiteSpace(e));
+        return Row(MessageKind.Message, MessageText.Wording(db)[MessageKind.Message], values, familyId, values["Father"], $"Family {familyId}", "", $"Family {familyId}", number, email);
+    }
+
+    private static string ClassText(ArqamDbContext db, int? classId, int? sectionId)
+    {
+        var cls = classId is int c ? db.Classes.AsNoTracking().Where(x => x.Id == c).Select(x => x.Name).FirstOrDefault() : null;
+        var sec = sectionId is int s ? db.Sections.AsNoTracking().Where(x => x.Id == s).Select(x => x.Name).FirstOrDefault() : null;
+        return $"{Clean(cls)} {Clean(sec)}".Trim();
     }
 
     private static MessageRow Row(MessageKind kind, (string Subject, string Body) wording, Dictionary<string, string> values, int id, string name, string detail, string about, string refKey,

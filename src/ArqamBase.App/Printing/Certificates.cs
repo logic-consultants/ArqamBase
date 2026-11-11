@@ -38,7 +38,7 @@ public static class Certificates
                 t.Span($", {(s.IsGirl ? "daughter" : "son")} of ");
                 t.Span(s.FatherName).Bold();
                 t.Span(", is a bonafide student of ");
-                t.Span(s.SchoolName).Bold();
+                t.SchoolName(s.SchoolName, n => n.Bold());
                 t.Span($"{(school.Address.Length > 0 ? ", " + school.Address : "")}. {s.HeOrShe} is studying in class ");
                 t.Span(s.ClassAndSection).Bold();
                 t.Span(" under computer code ");
@@ -67,7 +67,7 @@ public static class Certificates
             const float margin = 2;
             page.Size(PageSizes.A4);
             page.Margin(0);
-            page.DefaultTextStyle(x => x.FontFamily("Times New Roman").FontSize(12));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Times New Roman")).FontSize(12));
             page.Header().Element(c =>
             {
                 if (school.Header is { } header) c.Image(header).FitWidth();

@@ -71,10 +71,8 @@ public static class Theme
     public const int MinFontSize = 10, MaxFontSize = 18, DefaultFontSize = 10;
     public const string DefaultFontName = "Segoe UI";
 
-    /// <summary>Plain, easy-to-read fonts users can choose from (only those installed on this computer).</summary>
-    public static IReadOnlyList<string> FontChoices { get; } =
-        new[] { "Segoe UI", "Calibri", "Arial", "Tahoma", "Verdana", "Microsoft Sans Serif", "Cambria" }
-            .Where(name => FontFamily.Families.Any(f => f.Name == name)).ToList();
+    /// <summary>Left-to-right fonts users can choose from: installed on this computer or bundled with the app.</summary>
+    public static IReadOnlyList<string> FontChoices => AppFonts.TextChoices;
 
     /// <summary>The app's text font, as chosen in Settings.</summary>
     public static Font BaseFont { get; private set; } = new(DefaultFontName, DefaultFontSize);
@@ -98,7 +96,7 @@ public static class Theme
         name = name is not null && FontChoices.Contains(name) ? name : DefaultFontName;
         size = ClampFontSize(size);
         if (BaseFont.Name == name && (int)BaseFont.SizeInPoints == size) return;
-        BaseFont = new Font(name, size);
+        BaseFont = AppFonts.Family(name) is { } family ? new Font(family, size) : new Font(DefaultFontName, size);
         ScaledFonts.Clear(); // old fonts may still be on screen, so they are left for the garbage collector
     }
 

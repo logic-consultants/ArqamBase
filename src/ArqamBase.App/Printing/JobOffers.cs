@@ -74,7 +74,7 @@ public static partial class JobOffers
         {
             page.Size(PageSizes.A4);
             page.Margin(0);
-            page.DefaultTextStyle(x => x.FontFamily("Times New Roman").FontSize(12));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Times New Roman")).FontSize(12));
             page.Content().PaddingLeft(72).PaddingRight(27).PaddingTop(32).Column(col => Body(col, text, d, school));
             page.Footer().PaddingLeft(52).PaddingRight(25).PaddingBottom(26).Column(col =>
             {
@@ -84,7 +84,7 @@ public static partial class JobOffers
                     r.RelativeItem().Text(text.Title.ToUpperInvariant()).FontFamily("Calibri").FontSize(10);
                     r.RelativeItem().AlignRight().Text(t =>
                     {
-                        t.DefaultTextStyle(x => x.FontFamily("Calibri").FontSize(10));
+                        t.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Calibri")).FontSize(10));
                         t.Span("Page ");
                         t.CurrentPageNumber().Bold();
                         t.Span(" of ");

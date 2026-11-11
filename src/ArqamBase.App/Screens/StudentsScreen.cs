@@ -114,7 +114,7 @@ public sealed class StudentsScreen : ScreenBase
             new("Student",
                 new("Fee ledger", Icons.Ledger, () => { if (_current is { Id: not 0 } s) Ctx.OpenScreenAt("ledger", s.Id); }),
                 new("Family", Icons.People, () => { if (_current?.FamilyId is int id) Ctx.OpenScreenAt("family", id); }),
-                new("Send WhatsApp", Icons.Chat, () => NotYet("Sending WhatsApp messages comes with the Messages screens (phase 5)."))),
+                new("Send WhatsApp", Icons.Chat, SendWhatsApp)),
             new("Print",
                 new("ID card", Icons.IdCard, PrintIdCards),
                 new("Leaving cert.", Icons.Document, PrintLeavingCertificate),
@@ -130,6 +130,18 @@ public sealed class StudentsScreen : ScreenBase
 
     private void NotYet(string message) =>
         KryptonMessageBox.Show(this, message, "Students", KryptonMessageBoxButtons.OK, KryptonMessageBoxIcon.Information);
+
+    /// <summary>A message of your own to the student's parents (wording from Message templates › Own message).</summary>
+    private void SendWhatsApp()
+    {
+        if (_current is not { Id: not 0 } s) { NotYet("Select a saved student first."); return; }
+        var cc = s.Id;
+        _ = Shell.SendMessageForm.ShowAsync(this, Ctx, () =>
+        {
+            using var db = Ctx.Config.CreateContext(Ctx.Session);
+            return MessageData.ForStudent(db, MessageKind.Message, cc, "Students");
+        }, MessageChannel.WhatsApp);
+    }
 
     // ----- Layout -----
 

@@ -42,8 +42,20 @@ public sealed class MessageSettingsScreen : ScreenBase
         var emailCard = new Card("Email");
         emailCard.AddTop(email);
 
+        var sms = new FieldPanel(2);
+        sms.Add("SMS phone address (local: http://phone-ip:8080, or the cloud address)", Inputs.Text(_bs, nameof(MessageSettings.SmsServerUrl)), 2);
+        sms.Add("Username", Inputs.Text(_bs, nameof(MessageSettings.SmsUser)));
+        sms.Add("Password", Secret(nameof(MessageSettings.SmsPassword)));
+        var smsCard = new Card("SMS");
+        smsCard.AddTop(sms, new KryptonLabel
+        {
+            AutoSize = true, StateCommon = { ShortText = { Color1 = Theme.Muted } }, Padding = new Padding(0, 4, 0, 0),
+            Text = "SMS goes out from the school's Android phone, through the free \"SMS Gateway for Android\" app (sms-gate.app).\n" +
+                   "In the app, turn on Local Server and copy the address, username and password shown there. The phone and this computer must be on the same network.",
+        });
+
         var test = new FieldPanel(2);
-        test.Add("Test WhatsApp number", Inputs.Text(_bs, nameof(MessageSettings.TestNumber)));
+        test.Add("Test WhatsApp and SMS number", Inputs.Text(_bs, nameof(MessageSettings.TestNumber)));
         test.Add("Test email", Inputs.Text(_bs, nameof(MessageSettings.TestEmail)));
         _test.Checked = _settings.TestMode;
         _test.CheckedChanged += (_, _) => { _settings.TestMode = _test.Checked; _dirty = true; RaiseStatusChanged(); };
@@ -51,7 +63,7 @@ public sealed class MessageSettingsScreen : ScreenBase
         testCard.AddTop(test, _test, _state);
 
         var content = new StackPanel();
-        content.AddTop(whatsAppCard, emailCard, testCard);
+        content.AddTop(whatsAppCard, emailCard, smsCard, testCard);
         var scroll = new KryptonPanel { Dock = DockStyle.Fill, AutoScroll = true };
         scroll.Controls.Add(content);
         Controls.Add(scroll);
@@ -66,7 +78,7 @@ public sealed class MessageSettingsScreen : ScreenBase
     public override bool HasChanges => _dirty;
     public override string StatusText => _dirty ? "Unsaved changes" : "Message settings";
     public override IReadOnlyList<ScreenCommandGroup> Commands =>
-        [new("Check", new ScreenCommand("Check WhatsApp", Icons.Chat, () => _ = CheckAsync()))];
+        [new("Check", new ScreenCommand("Check WhatsApp", Icons.Chat, () => _ = CheckAsync()), new ScreenCommand("Send test SMS", Icons.Send, () => _ = TestSmsAsync()))];
 
     private KryptonTextBox Secret(string property)
     {
@@ -97,6 +109,20 @@ public sealed class MessageSettingsScreen : ScreenBase
         CommitPendingEdits();
         if (!_settings.WhatsAppReady) { Inform("Enter the instance and API key first."); return; }
         try { Inform($"WhatsApp: {await new MessageSender(_settings).WhatsAppStateAsync(CancellationToken.None)}"); }
+        catch (MessageSendException ex) { Inform(ex.Message); }
+    }
+
+    /// <summary>Sends one SMS to the test number through the phone. Not logged.</summary>
+    private async Task TestSmsAsync()
+    {
+        CommitPendingEdits();
+        if (!_settings.SmsReady) { Inform("Enter the SMS phone address, username and password first."); return; }
+        if (MessageText.WhatsAppNumber(_settings.TestNumber) is not { } number) { Inform("Enter the test number first."); return; }
+        try
+        {
+            var id = await new MessageSender(_settings).SmsAsync(number, "Test SMS from ArqamBase.", CancellationToken.None);
+            Inform($"The phone accepted the SMS to +{number}{(id is null ? "" : $" (id {id})")}. Check that it arrives.");
+        }
         catch (MessageSendException ex) { Inform(ex.Message); }
     }
 

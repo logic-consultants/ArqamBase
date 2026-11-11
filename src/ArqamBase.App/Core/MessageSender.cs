@@ -33,6 +33,14 @@ public sealed class MessageSettings
     public string? SmtpUser { get; set; }
     public string? SmtpPassword { get; set; }
 
+    /// <summary>
+    /// The SMS Gateway for Android app on the school's phone: its local address (e.g. http://192.168.1.50:8080)
+    /// or https://api.sms-gate.app/3rdparty/v1 for its cloud server, with the username and password the app shows.
+    /// </summary>
+    public string? SmsServerUrl { get; set; }
+    public string? SmsUser { get; set; }
+    public string? SmsPassword { get; set; }
+
     /// <summary>Everything goes to the test number and address instead. Always on except on the live database.</summary>
     public bool TestMode { get; set; } = true;
     public string? TestNumber { get; set; }
@@ -40,6 +48,8 @@ public sealed class MessageSettings
 
     public bool WhatsAppReady => !string.IsNullOrWhiteSpace(Instance) && !string.IsNullOrWhiteSpace(ApiKey)
                                  && (WhatsAppProvider != WppConnect || Uri.TryCreate(ServerUrl?.Trim(), UriKind.Absolute, out _));
+
+    public bool SmsReady => Uri.TryCreate(SmsServerUrl?.Trim(), UriKind.Absolute, out _) && !string.IsNullOrWhiteSpace(SmsUser) && !string.IsNullOrWhiteSpace(SmsPassword);
 
     public bool EmailReady => !string.IsNullOrWhiteSpace(SendFrom) && (EmailSignIn == Smtp
         ? !string.IsNullOrWhiteSpace(SmtpServer)
@@ -80,6 +90,7 @@ public interface IMessageSender
 {
     Task<string?> WhatsAppAsync(string number, string text, MessageFile? file, CancellationToken cancel);
     Task<string?> EmailAsync(string to, string subject, string text, MessageFile? file, CancellationToken cancel);
+    Task<string?> SmsAsync(string number, string text, CancellationToken cancel);
 }
 
 /// <summary>Sends through the WhatsApp provider and email account in the settings.</summary>
@@ -114,19 +125,41 @@ public sealed class MessageSender(MessageSettings settings) : IMessageSender
         return request;
     }
 
-    /// <summary>The own WPPConnect gateway: send-message for text, send-file with a base64 data URL for a voucher.</summary>
+    /// <summary>
+    /// The own WPPConnect gateway. Text goes to its queue (queue/message), which spaces the messages out so WhatsApp
+    /// does not block the number; a voucher goes straight out through send-file, since the queue takes text only.
+    /// </summary>
     private async Task<string?> WppSendAsync(string number, string text, MessageFile? file, CancellationToken cancel)
     {
         object body = file is null
-            ? new { phone = number, isGroup = false, isNewsletter = false, isLid = false, message = text }
+            ? new { phone = new[] { number }, message = text }
             : new { phone = number, isGroup = false, isNewsletter = false, isLid = false, filename = file.Name, caption = text, base64 = $"data:application/pdf;base64,{Convert.ToBase64String(file.Content)}" };
-        using var request = WppRequest(HttpMethod.Post, file is null ? "send-message" : "send-file", body);
-        var reply = JsonNode.Parse(await SendAsync(request, cancel));
+        using var request = WppRequest(HttpMethod.Post, file is null ? "queue/message" : "send-file", body);
+        var answer = await SendAsync(request, cancel);
+        JsonNode? reply;
+        try { reply = JsonNode.Parse(answer); }
+        catch (System.Text.Json.JsonException) { return null; }
         // The gateway can answer 200/201 with status "error".
-        if (reply?["status"]?.ToString() is { } status && !status.Equals("success", StringComparison.OrdinalIgnoreCase))
-            throw new MessageSendException(reply["message"]?.ToString() ?? $"The gateway answered {status}.");
-        var first = reply?["response"] is JsonArray list && list.Count > 0 ? list[0] : reply?["response"];
-        return first is JsonObject o ? (o["id"] as JsonValue)?.ToString() ?? o["id"]?["_serialized"]?.ToString() : null;
+        if (reply?["status"] is JsonValue s && s.ToString() is var status
+            && (status.Equals("error", StringComparison.OrdinalIgnoreCase) || status.Equals("failed", StringComparison.OrdinalIgnoreCase)))
+            throw new MessageSendException(reply["message"]?.ToString() ?? reply["error"]?.ToString() ?? $"The gateway answered {status}.");
+        if (reply?["error"] is JsonValue error) throw new MessageSendException(error.ToString());
+        return MessageId(reply);
+    }
+
+    /// <summary>The message or queue job id, wherever this gateway version puts it.</summary>
+    private static string? MessageId(JsonNode? reply)
+    {
+        if (reply is JsonArray array) return array.Count > 0 ? MessageId(array[0]) : null;
+        if (reply is not JsonObject o) return null;
+        foreach (var key in new[] { "id", "jobId", "queueId", "messageId" })
+        {
+            if (o[key] is JsonValue v) return v.ToString();
+            if (o[key]?["_serialized"] is JsonValue serialized) return serialized.ToString();
+        }
+        foreach (var key in new[] { "response", "data", "job", "jobs", "queued" })
+            if (o[key] is { } inner && MessageId(inner) is { } id) return id;
+        return null;
     }
 
     private HttpRequestMessage GreenRequest(string chat, string text, MessageFile? file)
@@ -219,6 +252,28 @@ public sealed class MessageSender(MessageSettings settings) : IMessageSender
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         await SendAsync(request, cancel);
+    }
+
+    /// <summary>
+    /// An SMS through the SMS Gateway for Android app on the school's phone, which sends it from its SIM and splits long
+    /// and Urdu messages itself. Local server: POST {address}/message; cloud server: POST {address}/messages.
+    /// </summary>
+    public async Task<string?> SmsAsync(string number, string text, CancellationToken cancel)
+    {
+        var address = settings.SmsServerUrl!.Trim().TrimEnd('/');
+        var url = address + (address.Contains("/3rdparty/", StringComparison.OrdinalIgnoreCase) ? "/messages" : "/message");
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(new { textMessage = new { text }, phoneNumbers = new[] { "+" + number.TrimStart('+') } }),
+        };
+        var login = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.SmsUser!.Trim()}:{settings.SmsPassword}"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", login);
+        var answer = await SendAsync(request, cancel);
+        JsonNode? reply;
+        try { reply = JsonNode.Parse(answer); }
+        catch (System.Text.Json.JsonException) { return null; }
+        if (reply?["state"]?.ToString() == "Failed") throw new MessageSendException(reply["reason"]?.ToString() ?? "The phone could not send the SMS.");
+        return reply?["id"]?.ToString();
     }
 
     private static JsonArray Recipients(string address) =>

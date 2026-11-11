@@ -1,4 +1,5 @@
 using System.Text;
+using ArqamBase.App.Core;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -36,7 +37,7 @@ public static class Challans
                 {
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(6, Unit.Millimetre);
-                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(8.5f));
+                    page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(8.5f));
                     page.Content().Row(row =>
                     {
                         for (var i = 0; i < Copies.Length; i++)
@@ -59,7 +60,7 @@ public static class Challans
                 row.ConstantItem(30).Height(36).Image(school.Logo).FitArea();
                 row.RelativeItem().PaddingLeft(5).Column(h =>
                 {
-                    h.Item().Text(c.SchoolName.ToUpperInvariant()).FontSize(11).Bold().FontColor(PrintKit.Navy);
+                    h.Item().Text(t => t.SchoolName(c.SchoolName.ToUpperInvariant(), n => n.FontSize(11).Bold().FontColor(PrintKit.Navy)));
                     h.Item().Text("Fee Challan Form").FontSize(9.5f).Bold();
                     h.Item().Text(school.AddressLine).FontSize(6.5f).FontColor(Colors.Grey.Darken2);
                 });
@@ -126,7 +127,7 @@ public static class Challans
             if (!string.IsNullOrWhiteSpace(c.Message))
                 col.Item().PaddingTop(6).Border(0.5f).BorderColor(Colors.Grey.Medium).Padding(4).Element(x =>
                         c.Message.TrimStart()[0] is >= '؀' and <= 'ۿ' ? x.AlignRight() : x) // a message in Urdu reads from the right
-                    .Text(c.Message).FontFamily("Arial", "Tahoma").FontSize(8.5f);
+                    .Text(c.Message).FontFamily(AppFonts.HasUrdu(c.Message) ? [AppFonts.Urdu, "Arial"] : ["Arial", "Tahoma"]).FontSize(8.5f);
             col.Item().PaddingTop(18).Row(row =>
             {
                 row.RelativeItem().Column(s => { s.Item().PaddingRight(8).LineHorizontal(0.5f); s.Item().Text("Deposited by").FontSize(7.5f); });

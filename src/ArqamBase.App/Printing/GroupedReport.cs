@@ -46,7 +46,7 @@ public sealed class GroupedReport
         {
             page.Size(Landscape ? PageSizes.A4.Landscape() : PageSizes.A4);
             page.Margin(10, Unit.Millimetre);
-            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(8));
+            page.DefaultTextStyle(x => x.FontFamily(PrintKit.TextFont("Arial")).FontSize(8));
             page.Header().PaddingBottom(6).Column(col =>
             {
                 col.Item().Row(r =>
@@ -54,7 +54,7 @@ public sealed class GroupedReport
                     r.ConstantItem(30).Height(36).Image(Logo).FitArea();
                     r.RelativeItem().PaddingLeft(8).AlignMiddle().Column(c =>
                     {
-                        c.Item().Text(SchoolName.ToUpperInvariant()).FontSize(12).Bold().FontColor(PrintKit.Navy);
+                        c.Item().Text(t => t.SchoolName(SchoolName.ToUpperInvariant(), n => n.FontSize(12).Bold().FontColor(PrintKit.Navy)));
                         c.Item().Text(Title).FontSize(11).SemiBold();
                     });
                     r.RelativeItem().AlignRight().AlignBottom().Column(c =>

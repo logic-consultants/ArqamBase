@@ -14,8 +14,7 @@ namespace ArqamBase.App.Screens;
 public sealed class MessagesScreen : ScreenBase
 {
     private const int WhatsAppGapMs = 1500;
-    private const string LiveDatabase = "ArqamBase_be";
-    private static readonly string[] Channels = ["WhatsApp", "Email", "WhatsApp and email"];
+    private static readonly string[] Channels = ["WhatsApp", "Email", "WhatsApp and email", "SMS"];
 
     private readonly ComboBox _kind = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly KryptonDateTimePicker _date = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "ddd dd/MM/yyyy" };
@@ -41,7 +40,7 @@ public sealed class MessagesScreen : ScreenBase
         _date.Value = DateTime.Today;
         _date.MaxDate = DateTime.Today;
         _kind.DisplayMember = nameof(MessageType.Title);
-        _kind.Items.AddRange(MessageType.All.Cast<object>().ToArray());
+        _kind.Items.AddRange(MessageType.All.Where(t => t.InBulk).Cast<object>().ToArray());
         _kind.SelectedIndex = 0;
         _show.Items.AddRange(["Absent, leave and late", "Everyone marked"]);
         _show.SelectedIndex = 0;
@@ -99,8 +98,14 @@ public sealed class MessagesScreen : ScreenBase
     public override string StatusText => _list is null ? "Loading…" : $"{MessageType.Of(Kind).Title}: {_list.AllItems.Count:N0} people, {Ticked.Count:N0} ticked";
 
     private MessageKind Kind => ((MessageType)_kind.SelectedItem!).Kind;
-    private bool ByWhatsApp => _channel.SelectedIndex != 1;
-    private bool ByEmail => _channel.SelectedIndex != 0;
+    private bool ByWhatsApp => _channel.SelectedIndex is 0 or 2;
+    private bool ByEmail => _channel.SelectedIndex is 1 or 2;
+    private bool BySms => _channel.SelectedIndex == 3;
+
+    private List<MessageChannel> Chosen =>
+        [.. new[] { (ByWhatsApp, MessageChannel.WhatsApp), (ByEmail, MessageChannel.Email), (BySms, MessageChannel.Sms) }.Where(c => c.Item1).Select(c => c.Item2)];
+
+    private static bool Reaches(MessageRow r, MessageChannel c) => c == MessageChannel.Email ? r.Email is not null : r.Number is not null;
     private List<MessageRow> Ticked => _list?.AllItems.Where(r => r.Send).ToList() ?? [];
 
     public override void Reload() => ReloadRows();
@@ -150,7 +155,15 @@ public sealed class MessagesScreen : ScreenBase
     }
 
     /// <summary>Test messages go to the test number and address on any database but the live one.</summary>
-    private bool MustTest => !string.Equals(Ctx.Config.Database, LiveDatabase, StringComparison.OrdinalIgnoreCase);
+    private bool MustTest => MessageOut.MustTest(Ctx.Config);
+
+    /// <summary>Opens on a type of message, e.g. fee vouchers from the Periodic fee screen.</summary>
+    public override void Navigate(object target)
+    {
+        if (target is not MessageKind kind) return;
+        var index = _kind.Items.Cast<MessageType>().ToList().FindIndex(t => t.Kind == kind);
+        if (index >= 0 && index != _kind.SelectedIndex) _kind.SelectedIndex = index;
+    }
 
     private void ShowBanner()
     {
@@ -166,7 +179,8 @@ public sealed class MessagesScreen : ScreenBase
         var all = _list?.AllItems ?? [];
         _people.SetValue($"{all.Count:N0}");
         _ticked.SetValue($"{all.Count(r => r.Send):N0}", Theme.Good);
-        var missing = all.Count(r => (!ByWhatsApp || r.Number is null) && (!ByEmail || r.Email is null));
+        var chosen = Chosen;
+        var missing = all.Count(r => !chosen.Any(c => Reaches(r, c)));
         _noContact.SetValue($"{missing:N0}", missing > 0 ? Theme.Warning : null);
         _sent.SetValue($"{all.Count(r => r.LastSent.Length > 0):N0}");
         RaiseStatusChanged();
@@ -175,7 +189,7 @@ public sealed class MessagesScreen : ScreenBase
     private void ShowPreview()
     {
         if (_grid.CurrentRow?.DataBoundItem is not MessageRow r) { _preview.Text = ""; return; }
-        var text = $"{(ByWhatsApp ? r.Body : MessageText.ForEmail(r.Body))}{(r.FileName is null ? "" : $"\n\nAttached: {r.FileName}")}";
+        var text = $"{(ByWhatsApp ? r.Body : MessageText.ForEmail(r.Body))}{(r.FileName is null || BySms ? "" : $"\n\nAttached: {r.FileName}")}";
         if (ByEmail) text = $"Subject: {r.Subject}\n\n{text}";
         _preview.Text = text.ReplaceLineEndings("\r\n");
     }
@@ -203,17 +217,9 @@ public sealed class MessagesScreen : ScreenBase
         if (_stop is not null) return;
         var settings = MessageSettings.Load();
         var test = settings.TestMode || MustTest;
-        var (whatsApp, email) = (ByWhatsApp, ByEmail);
-        if (_sender is null && whatsApp && !settings.WhatsAppReady) { Inform("WhatsApp is not set up yet. Add it in Message settings."); return; }
-        if (_sender is null && email && !settings.EmailReady) { Inform("Email is not set up yet. Add it in Message settings."); return; }
-        var testNumber = MessageText.WhatsAppNumber(settings.TestNumber);
-        if (test && ((whatsApp && testNumber is null) || (email && string.IsNullOrWhiteSpace(settings.TestEmail))))
-        {
-            Inform("This is test mode, so messages go only to your test number and test email. Add them in Message settings.");
-            return;
-        }
-        var work = Ticked.SelectMany(r => new[] { whatsApp && r.Number is not null ? (Row: r, IsWhatsApp: true) : default, email && r.Email is not null ? (Row: r, IsWhatsApp: false) : default })
-            .Where(x => x.Row is not null).ToList();
+        var chosen = Chosen;
+        if (_sender is null && MessageOut.Problem(Ctx.Config, settings, chosen) is { } problem) { Inform(problem); return; }
+        var work = Ticked.SelectMany(r => chosen.Where(c => Reaches(r, c)).Select(c => (Row: r, Channel: c))).ToList();
         if (work.Count == 0) { Inform("Nobody ticked has a number or email for this."); return; }
         var question = test ? $"Send {work.Count:N0} test messages to your test number and email?" : $"Send {work.Count:N0} messages to the people ticked? This cannot be undone.";
         if (KryptonMessageBox.Show(this, question, "Send messages", KryptonMessageBoxButtons.YesNo, KryptonMessageBoxIcon.Question) != DialogResult.Yes) return;
@@ -226,15 +232,16 @@ public sealed class MessagesScreen : ScreenBase
             foreach (var group in work.GroupBy(w => w.Row))
             {
                 var row = group.Key;
-                var file = row.Document is null ? null : await Task.Run(() => new MessageFile(row.FileName!, row.Document().GeneratePdf()), stop.Token);
+                var file = row.Document is null || BySms ? null : await Task.Run(() => new MessageFile(row.FileName!, row.Document().GeneratePdf()), stop.Token);
                 var results = new List<string>();
-                foreach (var (_, isWhatsApp) in group)
+                foreach (var (_, channel) in group)
                 {
                     _banner.Text = $"Sending {++done:N0} of {work.Count:N0}: {row.Name}…";
-                    var (status, detail) = await SendOneAsync(sender, row, isWhatsApp, file, test, testNumber, settings.TestEmail, stop.Token);
-                    results.Add($"{(isWhatsApp ? "WhatsApp" : "Email")} {status.ToLowerInvariant()}");
+                    var to = MessageOut.To(row, channel, test, settings) ?? "";
+                    var (status, detail) = await MessageOut.SendOneAsync(Ctx.Config, Ctx.Session, sender, row, channel, to, row.Subject, row.Body, file, test, stop.Token);
+                    results.Add($"{MessageOut.Name(channel)} {status.ToLowerInvariant()}");
                     if (status == "Failed") { failed++; results[^1] += $": {detail}"; }
-                    if (isWhatsApp) await Task.Delay(_sender is null ? WhatsAppGapMs : 0, stop.Token);
+                    if (channel != MessageChannel.Email) await Task.Delay(_sender is null ? WhatsAppGapMs : 0, stop.Token);
                 }
                 row.Result = string.Join("; ", results);
                 row.Send = results.Any(r => r.Contains("failed"));
@@ -249,34 +256,6 @@ public sealed class MessagesScreen : ScreenBase
             ShowBanner();
             ShowCounts();
         }
-    }
-
-    /// <summary>Sends one message and logs it, whatever happens.</summary>
-    private async Task<(string Status, string? Detail)> SendOneAsync(IMessageSender sender, MessageRow row, bool isWhatsApp, MessageFile? file, bool test, string? testNumber, string? testEmail, CancellationToken stop)
-    {
-        var to = isWhatsApp ? test ? testNumber! : row.Number! : test ? testEmail!.Trim() : row.Email!;
-        var text = isWhatsApp ? row.Body : MessageText.ForEmail(row.Body);
-        string status;
-        string? detail;
-        try
-        {
-            detail = isWhatsApp ? await sender.WhatsAppAsync(to, text, file, stop) : await sender.EmailAsync(to, row.Subject, text, file, stop);
-            status = test ? "Test" : "Sent";
-        }
-        catch (MessageSendException ex) { (status, detail) = ("Failed", ex.Message); }
-
-        try
-        {
-            using var db = Ctx.Config.CreateContext(Ctx.Session);
-            db.MessageLogs.Add(new MessageLog
-            {
-                SentOn = DateTime.Now, SentBy = Ctx.Session.UserName, Kind = row.Kind.ToString(), RefKey = row.RefKey, PersonId = row.Id, PersonName = row.Name[..Math.Min(row.Name.Length, 150)],
-                Channel = isWhatsApp ? "WhatsApp" : "Email", SentTo = to, Body = text, FileName = file?.Name, Status = status, Detail = detail?[..Math.Min(detail.Length, 500)],
-            });
-            await db.SaveChangesAsync(CancellationToken.None);
-        }
-        catch (DbUpdateException ex) { Program.ShowError("A message went out but could not be logged.", ex); }
-        return (status, detail);
     }
 
     private void BuildGrid()

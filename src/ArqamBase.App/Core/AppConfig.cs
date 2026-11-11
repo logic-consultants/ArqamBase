@@ -67,6 +67,10 @@ public sealed class UserSettings
     public string? LastUserName { get; set; }
     public string FontName { get; set; } = Core.Theme.DefaultFontName;
     public int FontSize { get; set; } = Core.Theme.DefaultFontSize;
+    /// <summary>Font of the school name on printouts.</summary>
+    public string SchoolNameFont { get; set; } = AppFonts.SchoolNameDefault;
+    /// <summary>Text font of the printouts; null keeps each printout's own font (Arial or Times New Roman).</summary>
+    public string? PrintFont { get; set; }
     /// <summary>The fee ledger's last-used collection type (Mode), which also picks the receipt number series.</summary>
     public int? FeeCollectionTypeId { get; set; }
     /// <summary>Paper for fee receipts on this computer: A4 (laser printer) or an 80 mm thermal roll.</summary>

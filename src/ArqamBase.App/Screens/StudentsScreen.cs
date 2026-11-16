@@ -19,7 +19,7 @@ public sealed record NewStudentInFamily(int FamilyId);
 public sealed class StudentsScreen : ScreenBase
 {
     private readonly bool _canEdit;
-    private readonly KryptonTextBox _search = new() { Width = 280, CueHint = { CueHintText = "Search name, CC, father, phone or Form-B" } };
+    private readonly KryptonTextBox _search = new() { Width = 280, CueHint = { CueHintText = "Search name, CC, father, phone, Form-B or remarks" } };
     private readonly ComboBox _schoolFilter = new() { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _classFilter = new() { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _sectionFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -440,6 +440,7 @@ public sealed class StudentsScreen : ScreenBase
             _grid.AddText(nameof(Student.Mobile), "Mobile", 130);
             _grid.AddText(nameof(Student.MotherMobile), "MCell", 130);
             _grid.AddText(nameof(Student.EmergencyNo), "Emergency no.", 130);
+            _grid.AddText(nameof(Student.Remarks), "Remarks", 220);
             foreach (var number in new[] { nameof(Student.WhatsApp), nameof(Student.Mobile), nameof(Student.MotherMobile), nameof(Student.EmergencyNo) })
                 _grid.FormatNumbers(number, NumberFormat.Phone);
             foreach (DataGridViewColumn c in _grid.Columns)
@@ -523,6 +524,7 @@ public sealed class StudentsScreen : ScreenBase
         s.Id.ToString() == term
         || (s.Name?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
         || (s.FatherName?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
+        || (s.Remarks?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
         || (digits.Length >= 4 && new[] { s.FormB, s.WhatsApp, s.Family?.Mobile, s.Family?.MotherMobile, s.Family?.PhoneHome }
             .Any(p => p is not null && new string(p.Where(char.IsDigit).ToArray()).Contains(digits)));
 

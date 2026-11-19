@@ -1,5 +1,5 @@
-﻿/* Accounts 2026-27 imported from ACC_Toba_be_26-27.accdb on 18/11/2026 01:37.
-   86 accounts, 113 vouchers, 1775 lines. Made by sql/tools/import-accounts.ps1; run accounts_install.sql first. */
+﻿/* Accounts 2026-27 imported from ACC_Toba_be_26-27.accdb on 19/11/2026 18:52.
+   87 accounts, 116 vouchers, 1851 lines. Made by sql/tools/import-accounts.ps1; run accounts_install.sql first. */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 IF EXISTS (SELECT 1 FROM dbo.acc_Vouchers) OR EXISTS (SELECT 1 FROM dbo.acc_VoucherLines)
@@ -12,7 +12,7 @@ IF @year IS NULL BEGIN RAISERROR('Financial year 2026-27 is missing.', 16, 1); R
 DELETE dbo.acc_Accounts;
 SET IDENTITY_INSERT dbo.acc_Accounts ON;
 INSERT dbo.acc_Accounts (AccountID, AccountNo, Name, AccountTypeID, SubTypeID, Kind, CareOf, Mobile, Mobile2, Phone, Phone2, Address, IsActive, CreatedBy, CreatedOn) VALUES
-    (1, N'0001', N'Usman Habib (Capital)', 2, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
+    (1, N'\', N'Usman Habib (Capital)', 2, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
     (2, N'0002', N'Muhammad Waqas (Capital)', 2, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
     (3, N'0003', N'Ahsan Habib (Capital)', 2, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
     (4, N'0004', N'Asif Habib (Capital)', 2, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
@@ -97,7 +97,8 @@ INSERT dbo.acc_Accounts (AccountID, AccountNo, Name, AccountTypeID, SubTypeID, K
     (83, N'0083', N'Plot Rent (Girls Campus)', 4, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
     (84, N'0084', N'Plot Rent (Naeem)', 4, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
     (85, N'0085', N'Abdul Jabbar (Canteen)', 4, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
-    (86, N'0086', N' Zawar (Adv)', 4, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME());
+    (86, N'0086', N' Zawar (Adv)', 4, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME()),
+    (87, N'0087', N'AC Repairing', 4, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 1, N'Access import', SYSDATETIME());
 SET IDENTITY_INSERT dbo.acc_Accounts OFF;
 
 SET IDENTITY_INSERT dbo.acc_Vouchers ON;
@@ -214,7 +215,10 @@ INSERT dbo.acc_Vouchers (VoucherID, YearID, VoucherNo, VoucherType, VoucherDate,
     (112, @year, 112, 'Daily', '2026-11-11', 71, N'Daily cash sheet 11/11/2026', N'Access import', SYSDATETIME()),
     (113, @year, 113, 'Daily', '2026-11-12', 71, N'Daily cash sheet 12/11/2026', N'Access import', SYSDATETIME()),
     (114, @year, 114, 'Daily', '2026-11-13', 72, N'Daily cash sheet 13/11/2026', N'Access import', SYSDATETIME()),
-    (115, @year, 115, 'Daily', '2026-11-14', 72, N'Daily cash sheet 14/11/2026', N'Access import', SYSDATETIME());
+    (115, @year, 115, 'Daily', '2026-11-14', 72, N'Daily cash sheet 14/11/2026', N'Access import', SYSDATETIME()),
+    (116, @year, 116, 'Daily', '2026-11-16', 74, N'Daily cash sheet 16/11/2026', N'Access import', SYSDATETIME()),
+    (117, @year, 117, 'Daily', '2026-11-17', 75, N'Daily cash sheet 17/11/2026', N'Access import', SYSDATETIME()),
+    (118, @year, 118, 'Daily', '2026-11-18', 76, N'Daily cash sheet 18/11/2026', N'Access import', SYSDATETIME());
 SET IDENTITY_INSERT dbo.acc_Vouchers OFF;
 
 INSERT dbo.acc_VoucherLines (VoucherID, LineNumber, AccountID, Description, BillNo, ChequeNo, ChequeDate, Debit, Credit, IsOk, IsCleared, Source, AccessID) VALUES
@@ -1995,7 +1999,83 @@ INSERT dbo.acc_VoucherLines (VoucherID, LineNumber, AccountID, Description, Bill
     (115, 2, 36, N'Cash Girls R # 1137 -1138', NULL, NULL, NULL, 0.0000, 6400, 0, 0, 'Import', 1781),
     (115, 3, 36, N'Cash Boys R # 806 - 808', NULL, NULL, NULL, 0.0000, 9400, 0, 0, 'Import', 1782),
     (115, 4, 9, N'Cash Handover to sir Usman', NULL, NULL, NULL, 6400, 0.0000, 0, 0, 'Import', 1783),
-    (115, 5, 29, N'Closing Balance', NULL, NULL, NULL, 11000, 0.0000, 0, 0, 'Import', 1784);
+    (115, 5, 29, N'Closing Balance', NULL, NULL, NULL, 11000, 0.0000, 0, 0, 'Import', 1784),
+    (116, 1, 29, N'Opening Balance', NULL, NULL, NULL, 0.0000, 11000, 0, 0, 'Import', 1785),
+    (116, 2, 36, N'Cash Girls R # 1139 - 1152', NULL, NULL, NULL, 0.0000, 55900, 0, 0, 'Import', 1786),
+    (116, 3, 60, N'Cash Girls R # 1139 - 1152', NULL, NULL, NULL, 0.0000, 5000, 0, 0, 'Import', 1787),
+    (116, 4, 49, N'Cash Girls R # 1139 - 1152', NULL, NULL, NULL, 0.0000, 200, 0, 0, 'Import', 1788),
+    (116, 5, 36, N'Bank Challan R # 35', NULL, NULL, NULL, 0.0000, 3800, 0, 0, 'Import', 1789),
+    (116, 6, 49, N'Bank Challan R # 35', NULL, NULL, NULL, 0.0000, 100, 0, 0, 'Import', 1790),
+    (116, 7, 36, N'Online Boys R # 1143 - 1150', NULL, NULL, NULL, 0.0000, 24900, 0, 0, 'Import', 1791),
+    (116, 8, 49, N'Online Boys R # 1143 - 1150', NULL, NULL, NULL, 0.0000, 200, 0, 0, 'Import', 1792),
+    (116, 9, 36, N'Cash Boys R # 809 - 820', NULL, NULL, NULL, 0.0000, 59600, 0, 0, 'Import', 1793),
+    (116, 10, 60, N'Cash Boys R # 809 - 820', NULL, NULL, NULL, 0.0000, 32000, 0, 0, 'Import', 1794),
+    (116, 11, 49, N'Cash Boys R # 809 - 820', NULL, NULL, NULL, 0.0000, 500, 0, 0, 'Import', 1795),
+    (116, 12, 9, N'AC Covers', NULL, NULL, NULL, 0.0000, 1400, 0, 0, 'Import', 1796),
+    (116, 13, 9, N'Divisional Level Students Registration', NULL, NULL, NULL, 0.0000, 2000, 0, 0, 'Import', 1797),
+    (116, 14, 9, N'Cash Received By Sir Usman R # 3369834', NULL, NULL, NULL, 0.0000, 33000, 0, 0, 'Import', 1798),
+    (116, 15, 9, N'Girls Campus Building Rent paid M/O Nov 26', NULL, NULL, NULL, 0.0000, 154280, 0, 0, 'Import', 1799),
+    (116, 16, 9, N'Boys Campus Building Rent paid M/O Nov 26', NULL, NULL, NULL, 0.0000, 216000, 0, 0, 'Import', 1800),
+    (116, 17, 9, N'Charger data cable', NULL, NULL, NULL, 0.0000, 300, 0, 0, 'Import', 1801),
+    (116, 18, 9, N'Petrol in school bike', NULL, NULL, NULL, 0.0000, 800, 0, 0, 'Import', 1802),
+    (116, 19, 9, N'Welding bill paid', NULL, NULL, NULL, 0.0000, 1500, 0, 0, 'Import', 1803),
+    (116, 20, 9, N'Lock Repair', NULL, NULL, NULL, 0.0000, 200, 0, 0, 'Import', 1804),
+    (116, 21, 9, N'Motor repair in boys campus', NULL, NULL, NULL, 0.0000, 1730, 0, 0, 'Import', 1805),
+    (116, 22, 9, N'Cleaning  & Sanitation Items', NULL, NULL, NULL, 0.0000, 3000, 0, 0, 'Import', 1806),
+    (116, 23, 9, N'Auto Rent paid for shifting luggage', NULL, NULL, NULL, 0.0000, 300, 0, 0, 'Import', 1807),
+    (116, 24, 9, N'Entertainment', NULL, NULL, NULL, 0.0000, 160, 0, 0, 'Import', 1808),
+    (116, 25, 34, N'Online fee R # 1143 - 1150', NULL, NULL, NULL, 25100, 0.0000, 0, 0, 'Import', 1809),
+    (116, 26, 33, N'Fee paid in bank C.C 2260 R # 35', NULL, NULL, NULL, 3900, 0.0000, 0, 0, 'Import', 1810),
+    (116, 27, 87, N'AC covers', NULL, NULL, NULL, 1400, 0.0000, 0, 0, 'Import', 1811),
+    (116, 28, 67, N'Divisional Level Students Registration', NULL, NULL, NULL, 2000, 0.0000, 0, 0, 'Import', 1812),
+    (116, 29, 33, N'Cash Received By Sir Usman R # 3369834', NULL, NULL, NULL, 33000, 0.0000, 0, 0, 'Import', 1813),
+    (116, 30, 50, N'Girls Campus Building Rent paid M/O Nov 26', NULL, NULL, NULL, 154280, 0.0000, 0, 0, 'Import', 1814),
+    (116, 31, 51, N'Boys Campus Building Rent paid M/O Nov 26', NULL, NULL, NULL, 216000, 0.0000, 0, 0, 'Import', 1815),
+    (116, 32, 44, N'Charger data cable', NULL, NULL, NULL, 300, 0.0000, 0, 0, 'Import', 1816),
+    (116, 33, 43, N'Office Daraz handle Girls Campus', NULL, NULL, NULL, 150, 0.0000, 0, 0, 'Import', 1817),
+    (116, 34, 56, N'Mouse Girls Campus', NULL, NULL, NULL, 300, 0.0000, 0, 0, 'Import', 1818),
+    (116, 35, 40, N'Petrol in school bike', NULL, NULL, NULL, 800, 0.0000, 0, 0, 'Import', 1819),
+    (116, 36, 52, N'Welding bill paid', NULL, NULL, NULL, 1500, 0.0000, 0, 0, 'Import', 1820),
+    (116, 37, 43, N'Lock repair (girls Campus)', NULL, NULL, NULL, 200, 0.0000, 0, 0, 'Import', 1821),
+    (116, 38, 44, N'Motor Repair in boys Campus', NULL, NULL, NULL, 1730, 0.0000, 0, 0, 'Import', 1822),
+    (116, 39, 45, N'Cleaning Items', NULL, NULL, NULL, 3000, 0.0000, 0, 0, 'Import', 1823),
+    (116, 40, 42, N'Auto Rent paid for shifting luggage', NULL, NULL, NULL, 300, 0.0000, 0, 0, 'Import', 1824),
+    (116, 41, 38, N'2 cup of tea for guest in Boys Campus', NULL, NULL, NULL, 160, 0.0000, 0, 0, 'Import', 1825),
+    (116, 42, 45, N'Cleaning Items', NULL, NULL, NULL, 3300, 0.0000, 0, 0, 'Import', 1826),
+    (116, 43, 33, N'Fee cash deposit R # 3369833', NULL, NULL, NULL, 153200, 0.0000, 0, 0, 'Import', 1827),
+    (116, 44, 29, N'Closing balance', NULL, NULL, NULL, 7250, 0.0000, 0, 0, 'Import', 1828),
+    (117, 1, 29, N'Opening Balance', NULL, NULL, NULL, 0.0000, 7250, 0, 0, 'Import', 1829),
+    (117, 2, 36, N'Cash Girls R # 1153 - 1167', NULL, NULL, NULL, 0.0000, 79700, 0, 0, 'Import', 1830),
+    (117, 3, 60, N'Cash Girls R # 1153 - 1167', NULL, NULL, NULL, 0.0000, 21000, 0, 0, 'Import', 1831),
+    (117, 4, 49, N'Cash Girls R # 1153 - 1167', NULL, NULL, NULL, 0.0000, 300, 0, 0, 'Import', 1832),
+    (117, 5, 36, N'Online Girls R # 1160', NULL, NULL, NULL, 0.0000, 2500, 0, 0, 'Import', 1833),
+    (117, 6, 36, N'Cash Boys R # 821 - 842', NULL, NULL, NULL, 0.0000, 17050, 0, 0, 'Import', 1834),
+    (117, 7, 9, N'Breakfast + Lunch + Dinner for Sir Abdullah Latif Regional Admin Officer', NULL, NULL, NULL, 0.0000, 840, 0, 0, 'Import', 1835),
+    (117, 8, 42, N'Auto Rent paid for shifting luggage', NULL, NULL, NULL, 400, 0.0000, 0, 0, 'Import', 1836),
+    (117, 9, 44, N'Reparining of Exhaust fan in Boys campus Account office', NULL, NULL, NULL, 680, 0.0000, 0, 0, 'Import', 1837),
+    (117, 10, 41, N'1 set of rim Pakmate', NULL, NULL, NULL, 3900, 0.0000, 0, 0, 'Import', 1838),
+    (117, 11, 38, N'Breakfast + Lunch + Dinner for Sir Abdullah Latif Regional Admin Officer', NULL, NULL, NULL, 3110, 0.0000, 0, 0, 'Import', 1839),
+    (117, 12, 55, N'Bill paid M/O Nov-26', NULL, NULL, NULL, 53153, 0.0000, 0, 0, 'Import', 1840),
+    (117, 13, 39, N'Bill paid M/O Nov-26', NULL, NULL, NULL, 10380, 0.0000, 0, 0, 'Import', 1841),
+    (117, 14, 54, N'Bill paid M/O Nov-26', NULL, NULL, NULL, 2140, 0.0000, 0, 0, 'Import', 1842),
+    (117, 15, 33, N'Online Fee R # 1160', NULL, NULL, NULL, 2500, 0.0000, 0, 0, 'Import', 1843),
+    (117, 16, 41, N'Printer repair and service in girls campus', NULL, NULL, NULL, 1900, 0.0000, 0, 0, 'Import', 1844),
+    (117, 17, 34, N'Fee cash online transfer jazzcash to bank', NULL, NULL, NULL, 10000, 0.0000, 0, 0, 'Import', 1845),
+    (117, 18, 33, N'Fee cash deposit in bank R # 3369840', NULL, NULL, NULL, 40477, 0.0000, 0, 0, 'Import', 1846),
+    (117, 19, 29, N'Closing Balance', NULL, NULL, NULL, 0.0000, 0.0000, 0, 0, 'Import', 1847),
+    (118, 1, 29, N'Opening Balance', NULL, NULL, NULL, 0.0000, 0.0000, 0, 0, 'Import', 1848),
+    (118, 2, 36, N'Cash Girls R # 1168 - 1179', NULL, NULL, NULL, 0.0000, 42400, 0, 0, 'Import', 1849),
+    (118, 3, 60, N'Cash Girls R # 1168 - 1179', NULL, NULL, NULL, 0.0000, 3800, 0, 0, 'Import', 1850),
+    (118, 4, 36, N'Online Girls R # 1178', NULL, NULL, NULL, 0.0000, 3700, 0, 0, 'Import', 1851),
+    (118, 5, 36, N'Online Boys R # 1174,1175,1179', NULL, NULL, NULL, 0.0000, 14200, 0, 0, 'Import', 1852),
+    (118, 6, 36, N'Cash Boys R # 825 - 831', NULL, NULL, NULL, 0.0000, 22700, 0, 0, 'Import', 1853),
+    (118, 7, 60, N'Cash Boys R # 825 - 831', NULL, NULL, NULL, 0.0000, 2000, 0, 0, 'Import', 1854),
+    (118, 8, 9, N'Electric Repairing Fix blub', NULL, NULL, NULL, 0.0000, 450, 0, 0, 'Import', 1855),
+    (118, 9, 9, N'Glass cutting Cupboard (Boys Campus)', NULL, NULL, NULL, 0.0000, 150, 0, 0, 'Import', 1856),
+    (118, 10, 9, N'Air Freshner', NULL, NULL, NULL, 0.0000, 300, 0, 0, 'Import', 1857),
+    (118, 11, 9, N'Entertainment', NULL, NULL, NULL, 0.0000, 240, 0, 0, 'Import', 1858),
+    (118, 12, 9, N'Bulb Boys Campus', NULL, NULL, NULL, 0.0000, 150, 0, 0, 'Import', 1859),
+    (118, 13, 9, N'Apa Rukhsana 4 days salary', NULL, NULL, NULL, 0.0000, 1500, 0, 0, 'Import', 1860);
 
 COMMIT;
 DECLARE @a int = (SELECT COUNT(*) FROM dbo.acc_Accounts), @v int = (SELECT COUNT(*) FROM dbo.acc_Vouchers), @l int = (SELECT COUNT(*) FROM dbo.acc_VoucherLines);

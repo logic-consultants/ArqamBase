@@ -68,6 +68,7 @@ public sealed class DailyFeeReport : ReportView
     public override string Title => "Daily fee received";
     public override string Replaces => "Daily Fee Received Report, rptDailyFeeReceived, rptDailyFeeRR, rptDailyFeeRR_DepositWise, rpt_DailyFeeReceipt_Receiptwise";
     protected override IReadOnlyList<string> Signatures => ["Prepared by", "Accountant", "Manager"];
+    protected override bool? PrintLandscape => true;
 
     public override string StatusText
     {
@@ -156,6 +157,7 @@ public sealed class DailyFeeReport : ReportView
                 ReceiptNo = g.Key.ReceiptNo, FamilyId = g.First().FamilyId, FatherName = g.First().Father,
                 Name = string.Join(", ", g.Select(p => p.Name).Distinct()),
                 Period = string.Join(", ", g.Select(p => p.Period).Distinct()),
+                Remarks = string.Join("; ", g.Select(p => p.Remarks.Trim()).Where(r => r.Length > 0).Distinct()),
             }).ToList(),
             _ => paid.GroupBy(p => (p.ReceivedOn?.Date, p.TypeId)).Select(g => Total(g.ToList())).ToList(),
         };
@@ -180,16 +182,16 @@ public sealed class DailyFeeReport : ReportView
                 Grid.AddText(nameof(Row.ReceiptNo), "R#", 60);
                 Grid.AddText(nameof(Row.Cc), "CC", 60);
                 Grid.AddText(nameof(Row.FamilyId), "Family", 60);
-                Grid.AddText(nameof(Row.Name), "Name", 160, fill: true);
+                Grid.AddText(nameof(Row.Name), "Name", 170);
                 Grid.AddText(nameof(Row.ClassName), "Class", 80);
                 Grid.AddText(nameof(Row.Period), "Period", 70);
                 break;
             case View.Receipt:
                 Grid.AddText(nameof(Row.ReceiptNo), "R#", 60);
                 Grid.AddText(nameof(Row.FamilyId), "Family", 60);
-                Grid.AddText(nameof(Row.FatherName), "Father name", 150, fill: true);
-                Grid.AddText(nameof(Row.Name), "Students", 180, fill: true);
-                Grid.AddText(nameof(Row.Period), "Periods", 130, fill: true);
+                Grid.AddText(nameof(Row.FatherName), "Father name", 150);
+                Grid.AddText(nameof(Row.Name), "Students", 180);
+                Grid.AddText(nameof(Row.Period), "Periods", 130);
                 Number(nameof(Row.Challans), "Periods paid", 70);
                 break;
             default:
@@ -203,7 +205,7 @@ public sealed class DailyFeeReport : ReportView
                 Number(p, h, 68);
         Number(nameof(Row.Received), "Received", 85);
         Grid.AddText(nameof(Row.ReceivedBy), "Received by", 100);
-        if (view == View.Challan) Grid.AddText(nameof(Row.Remarks), "Remarks", 120).Visible = false;
+        if (view != View.Summary) Grid.AddText(nameof(Row.Remarks), "Remarks", 180);
     }
 
     private void Number(string property, string header, int width)

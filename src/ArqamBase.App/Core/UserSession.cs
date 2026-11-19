@@ -35,17 +35,19 @@ public sealed class UserSession : IDisposable
         AppRole.FeeClerk => area == AppArea.Fees,
         AppRole.Admissions => area is AppArea.Students or AppArea.Attendance,
         AppRole.Coordinator or AppRole.TeacherInCharge => area == AppArea.Attendance,
+        AppRole.Accountant => area == AppArea.Accounts,
         _ => false
     };
 
     /// <summary>
-    /// Which areas the user sees. Everyone else may view everything; a coordinator sees students, attendance and their reports,
-    /// a teacher in charge only attendance.
+    /// Which areas the user sees. A coordinator sees students, attendance and their reports, a teacher in charge only
+    /// attendance. The accounts are seen only by an Admin, the Accountant and read-only users. Everyone else sees the rest.
     /// </summary>
     public bool CanView(AppArea area) => Role switch
     {
         AppRole.Coordinator => area is AppArea.Students or AppArea.Attendance or AppArea.Reports,
         AppRole.TeacherInCharge => area is AppArea.Attendance or AppArea.Reports,
+        _ when area == AppArea.Accounts => Role is AppRole.Admin or AppRole.Accountant or AppRole.ReadOnly,
         _ => true
     };
 

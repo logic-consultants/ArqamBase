@@ -20,10 +20,10 @@ public sealed class FeeLedgerScreen : ScreenBase
     private const string ViewUnpaid = "Unpaid challans", ViewYear = "Last 12 months", ViewSinceAdmission = "Since admission";
 
     // A student in the find box.
-    private sealed record StudentItem(int Cc, string Name, int? ClassId, int? SectionId, bool OnRoll);
+    private sealed record StudentItem(int Cc, string Name, int? ClassId, int? SectionId, bool OnRoll, int? FamilyId, string Father);
 
     private readonly bool _canReceive, _isAdmin;
-    private readonly KryptonTextBox _find = new() { CueHint = { CueHintText = "Find student: CC or name" } };
+    private readonly KryptonTextBox _find = new() { CueHint = { CueHintText = "Find student: CC, name, family ID or father" } };
     private readonly LedgerHeader _header = new();
     private readonly ComboBox _view = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
     private readonly KryptonCheckBox _allStudents = new() { Text = "Show left students", AutoSize = true };
@@ -53,8 +53,8 @@ public sealed class FeeLedgerScreen : ScreenBase
     private readonly KryptonCheckBox _printReceipt = new() { Text = "Print receipt", Checked = true, AutoSize = true };
     private readonly ComboBox _paper = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly KryptonButton _attachSlip = new() { Text = "Attach bank slip…" };
-    private readonly KryptonLabel _slipName = new() { AutoSize = true };
     private readonly Panel _slipRow = new() { BackColor = Color.Transparent };
+    private readonly ToolTip _toolTip = new();
     private string? _slipPath;
     private readonly KryptonCheckBox _whatsApp = new() { Text = "Send receipt on WhatsApp", AutoSize = true };
     private readonly KryptonCheckBox _email = new() { Text = "Email receipt", AutoSize = true };
@@ -156,6 +156,7 @@ public sealed class FeeLedgerScreen : ScreenBase
         var familyLine = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, BackColor = Color.Transparent };
         familyLine.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         familyLine.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _familyText.Dock = DockStyle.Fill;
         familyLine.Controls.Add(_familyText, 0, 0);
         familyLine.Controls.Add(_familyBalance, 1, 0);
         var familyButtons = new FlowLayoutPanel { Dock = DockStyle.Top, Height = Theme.RowHeight + 16, BackColor = Color.Transparent, WrapContents = false, Padding = new Padding(0, 8, 0, 0) };
@@ -224,28 +225,47 @@ public sealed class FeeLedgerScreen : ScreenBase
         fields.Add("Against (whole challans)", _against, 2);
         fields.Add("Amount", _amount);
         fields.Add("Fine", _fine);
-        fields.Add("Mode", _mode, 2);
+        fields.Add("Mode", _mode);
         _slipRow.Height = Theme.RowHeight + 4;
-        _attachSlip.Dock = DockStyle.Left;
-        _slipName.Dock = DockStyle.Fill;
-        _slipName.Padding = new Padding(8, 4, 0, 0);
-        _slipRow.Controls.AddRange([_slipName, _attachSlip]);
-        fields.Add("Bank / online deposit slip", _slipRow, 2);
+        _attachSlip.Dock = DockStyle.Fill;
+        _slipRow.Controls.Add(_attachSlip);
+        fields.Add("Online deposit slip", _slipRow);
         fields.Add("Remarks", _remarks, 2);
-        fields.Add("", _printReceipt);
-        fields.Add("Receipt paper", _paper);
-        fields.Add("", _whatsApp, 2);
-        fields.Add("", _email, 2);
-        fields.Add("", _sms, 2);
-        fields.Add("", _sendResult, 2);
-        var buttons = new Panel { Height = Theme.RowHeight + 10, BackColor = Color.Transparent };
-        _clear.Dock = DockStyle.Left;
-        _saveReceipt.Dock = DockStyle.Right;
-        buttons.Controls.AddRange([_clear, _saveReceipt]);
-        fields.Add("", buttons, 2);
         fields.Enabled = _canReceive;
         _fine.Enabled = _isAdmin; // a fine changes the challan: Admin only
-        _receiveCard.AddTop(fields);
+
+        // The receipt choices close together on the left; receipt paper, Clear and Save receipt beside them, so the
+        // Family box below fits on the same screen.
+        var options = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, RowCount = 5,
+            BackColor = Color.Transparent, Margin = Padding.Empty, Padding = new Padding(0, 4, 0, 0), Enabled = _canReceive,
+        };
+        options.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        foreach (var (box, row) in new[] { (_printReceipt, 0), (_whatsApp, 1), (_email, 2), (_sms, 3) })
+        {
+            box.Margin = new Padding(0, 1, 8, 1);
+            options.Controls.Add(box, 0, row);
+        }
+        _paper.Dock = DockStyle.Fill;
+        _paper.Margin = new Padding(0, 1, 0, 1);
+        options.Controls.Add(_paper, 1, 0);
+        var buttons = new FlowLayoutPanel
+        {
+            AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.RightToLeft, WrapContents = false,
+            BackColor = Color.Transparent, Margin = Padding.Empty, Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
+        };
+        _saveReceipt.Margin = Padding.Empty;
+        _clear.Margin = new Padding(0, 0, 6, 0);
+        buttons.Controls.AddRange([_saveReceipt, _clear]);
+        options.Controls.Add(buttons, 1, 2);
+        options.SetRowSpan(buttons, 2);
+        _sendResult.Dock = DockStyle.Fill;
+        _sendResult.Visible = false;
+        options.Controls.Add(_sendResult, 0, 4);
+        options.SetColumnSpan(_sendResult, 2);
+        _receiveCard.AddTop(fields, options);
 
         _paper.Items.AddRange(["A4 (laser printer)", "80 mm roll (receipt printer)"]);
         _paper.SelectedIndex = Ctx.Settings.ReceiptPaper == Printing.ReceiptPaper.Roll80 ? 1 : 0;
@@ -283,8 +303,8 @@ public sealed class FeeLedgerScreen : ScreenBase
             b.Size = new Size(W(b == _receiveFamily ? "Receive for family" : b.Text), h);
         _receiveFamily.Width = Math.Max(W("Receive for family"), W("Only this student"));
         _slipRow.Height = h + 2;
-        _against.Height = Theme.RowHeight * 4;
-        _find.Width = TextRenderer.MeasureText("0000 · MUHAMMAD ABDULLAH KHAN", Theme.BaseFont).Width + 20;
+        _against.Height = Theme.RowHeight * 3 + 4;
+        _find.Width = TextRenderer.MeasureText("Find student: CC, name, family ID or father", Theme.BaseFont).Width + 20;
         _find.Location = Point.Empty;
         _allStudents.Location = new Point(0, _find.Height + 2);
         _find.Parent!.Size = new Size(_find.Width, _allStudents.Bottom);
@@ -327,7 +347,7 @@ public sealed class FeeLedgerScreen : ScreenBase
             {
                 using var db = Ctx.Config.CreateContext(Ctx.Session);
                 var students = db.Students.OrderBy(s => s.Name)
-                    .Select(s => new StudentItem(s.Id, s.Name ?? "", s.ClassId, s.SectionId, s.OnRoll)).ToList();
+                    .Select(s => new StudentItem(s.Id, s.Name ?? "", s.ClassId, s.SectionId, s.OnRoll, s.FamilyId, s.Family != null ? s.Family.FatherName ?? "" : "")).ToList();
                 var classes = (from c in db.Classes
                                join d in db.Departments on c.DepartmentId equals d.Id into ds
                                from d in ds.DefaultIfEmpty()
@@ -380,28 +400,36 @@ public sealed class FeeLedgerScreen : ScreenBase
     }
 
     /// <summary>
-    /// Students whose name contains every word typed, in any order ("habib" or "abdullah habib" finds Muhammad Abdullah Habib),
-    /// or whose CC starts with the number typed. Students who have left only when "Show left students" is ticked.
+    /// Students whose name or father's name contains every word typed, in any order ("habib" or "abdullah habib" finds
+    /// Muhammad Abdullah Habib). A number finds the CC that starts with it and the children of that family ID: the exact CC first,
+    /// then the family, then other CCs. Students who have left only when "Show left students" is ticked.
     /// </summary>
     private List<StudentItem> Matching(string text, bool all)
     {
         var words = text.Split([' ', '·'], StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0) return [];
         var number = words.Length == 1 && words[0].All(char.IsDigit) ? words[0] : null;
+        var n = number is not null && int.TryParse(number, out var x) ? x : -1;
+        bool Has(string field, string w) => field.Contains(w, StringComparison.CurrentCultureIgnoreCase);
+        int Rank(StudentItem s) => number is not null
+            ? s.Cc == n ? 0 : s.FamilyId == n ? 1 : 2
+            : s.Name.StartsWith(text, StringComparison.CurrentCultureIgnoreCase) ? 0 : words.All(w => Has(s.Name, w)) ? 1 : 2;
         return _students
             .Where(s => all || s.OnRoll)
             .Where(s => number is not null
-                ? s.Cc.ToString().StartsWith(number, StringComparison.Ordinal)
-                : words.All(w => s.Name.Contains(w, StringComparison.CurrentCultureIgnoreCase)))
-            .OrderBy(s => number is not null ? s.Cc.ToString().Length : s.Name.StartsWith(text, StringComparison.CurrentCultureIgnoreCase) ? 0 : 1)
-            .ThenBy(s => number is not null ? s.Cc : 0).ThenBy(s => s.Name)
+                ? s.Cc.ToString().StartsWith(number, StringComparison.Ordinal) || s.FamilyId == n
+                : words.All(w => Has(s.Name, w) || Has(s.Father, w)))
+            .OrderBy(Rank)
+            .ThenBy(s => number is not null ? s.Cc.ToString().Length : 0).ThenBy(s => number is not null ? s.Cc : 0).ThenBy(s => s.Name)
             .ToList();
     }
 
     private string MatchText(StudentItem s)
     {
         var cls = ClassText(s.ClassId, s.SectionId);
-        return $"{s.Cc} · {s.Name}{(cls.Length > 0 ? " · " + cls : "")}{(s.OnRoll ? "" : " · left")}";
+        var father = s.Father.Trim().Length > 0 ? $" · F: {s.Father.Trim()}" : "";
+        var family = s.FamilyId is int f ? $" · Fam {f}" : "";
+        return $"{s.Cc} · {s.Name}{father}{family}{(cls.Length > 0 ? " · " + cls : "")}{(s.OnRoll ? "" : " · left")}";
     }
 
     private void ShowMatches()
@@ -730,9 +758,10 @@ public sealed class FeeLedgerScreen : ScreenBase
     private void ShowSlip()
     {
         var online = FeeReceiptFileStore.IsOnline((_mode.SelectedItem as ModeItem)?.Type);
+        // The button says what is attached: there is no room for a separate label beside Mode.
         _attachSlip.Enabled = online;
-        _slipName.Text = !online ? "Only for online deposits" : _slipPath is null ? "No slip attached" : Path.GetFileName(_slipPath);
-        _slipName.StateCommon.ShortText.Color1 = online && _slipPath is not null ? Theme.Text : Theme.Muted;
+        _attachSlip.Text = !online ? "Online deposits only" : _slipPath is null ? "Attach bank slip…" : "✓ " + Path.GetFileName(_slipPath);
+        _toolTip.SetToolTip(_attachSlip, online && _slipPath is not null ? _slipPath : "");
     }
 
     private string NameOf(int? cc) => _family.FirstOrDefault(s => s.Id == cc)?.Name ?? $"CC {cc}";
@@ -1070,6 +1099,7 @@ public sealed class FeeLedgerScreen : ScreenBase
     {
         _sendResult.Text = text.Replace("\n", "  ");
         _sendResult.StateCommon.ShortText.Color1 = ok ? Theme.Good : Theme.Error;
+        _sendResult.Visible = text.Length > 0;
     }
 
     /// <summary>The receipt as a message to the parents, with the receipt (A4) attached. Built on a background thread: it reads the database.</summary>

@@ -33,6 +33,12 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
     public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
     public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
     public DbSet<GoogleOAuth> GoogleOAuth => Set<GoogleOAuth>();
+    public DbSet<AccountType> AccountTypes => Set<AccountType>();
+    public DbSet<AccountSubType> AccountSubTypes => Set<AccountSubType>();
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<FinancialYear> FinancialYears => Set<FinancialYear>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<VoucherLine> VoucherLines => Set<VoucherLine>();
     public DbSet<UserScope> UserScopes => Set<UserScope>();
     public DbSet<SalaryHead> SalaryHeads => Set<SalaryHead>();
     public DbSet<SalaryLine> SalaryLines => Set<SalaryLine>();
@@ -318,6 +324,88 @@ public class ArqamDbContext(DbContextOptions<ArqamDbContext> options) : DbContex
             e.Property(x => x.Subject).HasMaxLength(200);
             e.Property(x => x.UpdatedBy).HasMaxLength(128);
             e.Property(x => x.UpdatedOn).HasColumnType("datetime2(0)");
+        });
+
+        // ----- Accounts (sql/accounts_install.sql) -----
+        b.Entity<AccountType>(e =>
+        {
+            e.ToTable("acc_AccountTypes");
+            e.Property(x => x.Id).HasColumnName("AccountTypeID").ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(50);
+            e.Property(x => x.NormalSide).HasMaxLength(2).IsUnicode(false).IsFixedLength();
+        });
+        b.Entity<AccountSubType>(e =>
+        {
+            e.ToTable("acc_SubTypes");
+            e.Property(x => x.Id).HasColumnName("SubTypeID").ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(50);
+            e.Property(x => x.AccountTypeId).HasColumnName("AccountTypeID");
+        });
+        b.Entity<Account>(e =>
+        {
+            e.ToTable("acc_Accounts");
+            e.Property(x => x.Id).HasColumnName("AccountID");
+            e.Property(x => x.AccountNo).HasMaxLength(10).IsUnicode(false);
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.AccountTypeId).HasColumnName("AccountTypeID");
+            e.Property(x => x.SubTypeId).HasColumnName("SubTypeID");
+            e.Property(x => x.Kind).HasConversion<byte>();
+            e.Property(x => x.BankAccountNo).HasMaxLength(50);
+            e.Property(x => x.CareOf).HasMaxLength(100);
+            e.Property(x => x.Mobile).HasMaxLength(30);
+            e.Property(x => x.Mobile2).HasMaxLength(30);
+            e.Property(x => x.Phone).HasMaxLength(30);
+            e.Property(x => x.Phone2).HasMaxLength(30);
+            e.Property(x => x.Address).HasMaxLength(255);
+            e.Property(x => x.Notes).HasMaxLength(500);
+            e.Property(x => x.CreatedBy).HasMaxLength(128);
+            e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            e.Property(x => x.CreatedOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.UpdatedOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+        });
+        b.Entity<FinancialYear>(e =>
+        {
+            e.ToTable("acc_FinancialYears");
+            e.Property(x => x.Id).HasColumnName("YearID");
+            e.Property(x => x.Name).HasMaxLength(10).IsUnicode(false);
+            e.Property(x => x.StartDate).HasColumnType("date");
+            e.Property(x => x.EndDate).HasColumnType("date");
+            e.Property(x => x.LockedUpTo).HasColumnType("date");
+        });
+        b.Entity<Voucher>(e =>
+        {
+            e.ToTable("acc_Vouchers");
+            e.Property(x => x.Id).HasColumnName("VoucherID");
+            e.Property(x => x.YearId).HasColumnName("YearID");
+            e.Property(x => x.VoucherType).HasMaxLength(10).IsUnicode(false);
+            e.Property(x => x.VoucherDate).HasColumnType("date");
+            e.Property(x => x.Narration).HasMaxLength(255);
+            e.Property(x => x.CreatedBy).HasMaxLength(128);
+            e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            e.Property(x => x.CreatedOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.UpdatedOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.RowVersion).HasColumnName("TS").IsRowVersion();
+            e.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.VoucherId);
+        });
+        b.Entity<VoucherLine>(e =>
+        {
+            e.ToTable("acc_VoucherLines");
+            e.Property(x => x.Id).HasColumnName("LineID");
+            e.Property(x => x.VoucherId).HasColumnName("VoucherID");
+            e.Property(x => x.AccountId).HasColumnName("AccountID");
+            e.Property(x => x.Description).HasMaxLength(255);
+            e.Property(x => x.BillNo).HasMaxLength(20);
+            e.Property(x => x.ChequeNo).HasMaxLength(30);
+            e.Property(x => x.ChequeDate).HasColumnType("date");
+            e.Property(x => x.Debit).HasPrecision(14, 2);
+            e.Property(x => x.Credit).HasPrecision(14, 2);
+            e.Property(x => x.Source).HasMaxLength(10).IsUnicode(false);
+            e.Property(x => x.AccessId).HasColumnName("AccessID");
+            e.Property(x => x.EnteredBy).HasMaxLength(128);
+            e.Property(x => x.EnteredOn).HasColumnType("datetime2(0)");
+            e.Property(x => x.ChangedBy).HasMaxLength(128);
+            e.Property(x => x.ChangedOn).HasColumnType("datetime2(0)");
         });
 
         b.Entity<GoogleOAuth>(e =>

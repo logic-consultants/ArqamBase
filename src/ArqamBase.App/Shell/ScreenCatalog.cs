@@ -33,8 +33,8 @@ public static class ScreenCatalog
         new("advances", "Employee advances", "Staff & salaries", Icons.Receipt, 7, "Advance Request Form", c => new AdvancesScreen(c), AdminOnly: true),
         new("joboffers", "Job offer letters", "Staff & salaries", Icons.Document, 7, "Job offer letter (Word)", c => new JobOfferTemplatesScreen(c), AdminOnly: true),
 
-        new("vouchers", "Vouchers", "Accounts", Icons.Receipt, 8, "ACC_Toba accounting database"),
-        new("coa", "Chart of accounts", "Accounts", Icons.Book, 8),
+        new("vouchers", "Daily voucher", "Accounts", Icons.Receipt, 8, "Trans_head, table1", c => new VouchersScreen(c)),
+        new("coa", "Chart of accounts", "Accounts", Icons.Book, 8, "Enter Accounts, Account Types", c => new ChartOfAccountsScreen(c)),
         new("accledger", "Account ledger", "Accounts", Icons.Ledger, 8),
 
         new("messages", "WhatsApp, email & SMS", "Messages", Icons.Chat, 5, "frmUnpaidWhatsApp, frmWhatsAppsend", c => new MessagesScreen(c), AdminOnly: true),

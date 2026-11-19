@@ -68,6 +68,8 @@ public abstract partial class ReportView : KryptonPanel
     /// <summary>The school whose name heads the printout; none gives the default name.</summary>
     protected virtual int? PrintSchoolId => null;
     protected virtual IReadOnlyList<string> Signatures => [];
+    /// <summary>Whether the printout is A4 landscape; by default it is when the columns are too wide for portrait.</summary>
+    protected virtual bool? PrintLandscape => null;
 
     /// <summary>Summary figures of the rows shown, under the grid and in a box on the printout.</summary>
     protected virtual IReadOnlyList<(string Label, string Value)> Summary => [];
@@ -104,7 +106,7 @@ public abstract partial class ReportView : KryptonPanel
         {
             Title = Title,
             Subtitle = FilterText,
-            Columns = columns.Select(c => new ReportColumn(c.HeaderText, c.Width,
+            Columns = columns.Select(c => new ReportColumn(c.HeaderText, Math.Max(c.Width, c.Tag is int designed ? designed : c.MinimumWidth),
                 c.DefaultCellStyle.Alignment == DataGridViewContentAlignment.MiddleRight, SumProperties.Contains(c.DataPropertyName))).ToList(),
             Lines = lines.ThenBy(x => x.i).Select(x => new ReportLine(
                 columns.Select(c => x.r.Cells[c.Index].FormattedValue?.ToString() ?? "").ToArray(),
@@ -112,7 +114,7 @@ public abstract partial class ReportView : KryptonPanel
                     .ToDictionary(y => y.ci, y => x.r.Cells[y.c.Index].Value is { } v and not DBNull ? Convert.ToDecimal(v) : 0m),
                 groups.Select(g => Text(x.r, g.Property)).ToArray())).ToList(),
             GroupNames = groups.Select(g => g.Name).ToList(),
-            Landscape = columns.Sum(c => c.Width) > 900,
+            Landscape = PrintLandscape ?? columns.Sum(c => c.Width) > 900,
             Signatures = Signatures,
             Summary = Summary,
             SchoolName = header.Name,

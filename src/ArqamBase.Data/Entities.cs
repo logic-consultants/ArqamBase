@@ -108,7 +108,7 @@ public class CalendarDay
     public string DayName => Date.ToString("dddd");
 }
 
-public enum AppRole { Admin, FeeClerk, Admissions, ReadOnly, Coordinator, TeacherInCharge }
+public enum AppRole { Admin, FeeClerk, Admissions, ReadOnly, Coordinator, TeacherInCharge, Accountant }
 
 public class AppUser
 {

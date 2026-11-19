@@ -78,6 +78,7 @@ public class AccessGrid : KryptonDataGridView
         {
             col.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             col.MinimumWidth = width;
+            col.Tag = width; // the width it was designed with: a fill column can be squeezed narrower on screen
         }
         if (format is not null)
             col.DefaultCellStyle.Format = format;
@@ -113,6 +114,7 @@ public class AccessGrid : KryptonDataGridView
         {
             col.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             col.MinimumWidth = width;
+            col.Tag = width; // the width it was designed with: a fill column can be squeezed narrower on screen
         }
         Add(col);
         _comboTexts[property] = list.Where(i => i.Value is not null).ToDictionary(i => (object)i.Value!, i => i.Text);

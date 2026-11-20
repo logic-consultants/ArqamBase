@@ -1,5 +1,5 @@
-﻿/* Accounts 2026-27 imported from ACC_Toba_be_26-27.accdb on 19/11/2026 18:52.
-   87 accounts, 116 vouchers, 1851 lines. Made by sql/tools/import-accounts.ps1; run accounts_install.sql first. */
+﻿/* Accounts 2026-27 imported from ACC_Toba_be_26-27.accdb on 20/11/2026 11:47.
+   87 accounts, 117 vouchers, 1872 lines. Made by sql/tools/import-accounts.ps1; run accounts_install.sql first. */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 IF EXISTS (SELECT 1 FROM dbo.acc_Vouchers) OR EXISTS (SELECT 1 FROM dbo.acc_VoucherLines)
@@ -218,7 +218,8 @@ INSERT dbo.acc_Vouchers (VoucherID, YearID, VoucherNo, VoucherType, VoucherDate,
     (115, @year, 115, 'Daily', '2026-11-14', 72, N'Daily cash sheet 14/11/2026', N'Access import', SYSDATETIME()),
     (116, @year, 116, 'Daily', '2026-11-16', 74, N'Daily cash sheet 16/11/2026', N'Access import', SYSDATETIME()),
     (117, @year, 117, 'Daily', '2026-11-17', 75, N'Daily cash sheet 17/11/2026', N'Access import', SYSDATETIME()),
-    (118, @year, 118, 'Daily', '2026-11-18', 76, N'Daily cash sheet 18/11/2026', N'Access import', SYSDATETIME());
+    (118, @year, 118, 'Daily', '2026-11-18', 76, N'Daily cash sheet 18/11/2026', N'Access import', SYSDATETIME()),
+    (119, @year, 119, 'Daily', '2026-11-19', 76, N'Daily cash sheet 19/11/2026', N'Access import', SYSDATETIME());
 SET IDENTITY_INSERT dbo.acc_Vouchers OFF;
 
 INSERT dbo.acc_VoucherLines (VoucherID, LineNumber, AccountID, Description, BillNo, ChequeNo, ChequeDate, Debit, Credit, IsOk, IsCleared, Source, AccessID) VALUES
@@ -2075,7 +2076,28 @@ INSERT dbo.acc_VoucherLines (VoucherID, LineNumber, AccountID, Description, Bill
     (118, 10, 9, N'Air Freshner', NULL, NULL, NULL, 0.0000, 300, 0, 0, 'Import', 1857),
     (118, 11, 9, N'Entertainment', NULL, NULL, NULL, 0.0000, 240, 0, 0, 'Import', 1858),
     (118, 12, 9, N'Bulb Boys Campus', NULL, NULL, NULL, 0.0000, 150, 0, 0, 'Import', 1859),
-    (118, 13, 9, N'Apa Rukhsana 4 days salary', NULL, NULL, NULL, 0.0000, 1500, 0, 0, 'Import', 1860);
+    (118, 13, 9, N'Apa Rukhsana 4 days salary', NULL, NULL, NULL, 0.0000, 1500, 0, 0, 'Import', 1860),
+    (118, 14, 33, N'Online Fee R # 1178', NULL, NULL, NULL, 3700, 0.0000, 0, 0, 'Import', 1861),
+    (118, 15, 34, N'Online Fee R # 1174 - 1179', NULL, NULL, NULL, 14200, 0.0000, 0, 0, 'Import', 1862),
+    (118, 16, 44, N'Fix bulb and pay wages', NULL, NULL, NULL, 450, 0.0000, 0, 0, 'Import', 1863),
+    (118, 17, 43, N'Glass cutting cupboard', NULL, NULL, NULL, 150, 0.0000, 0, 0, 'Import', 1864),
+    (118, 18, 45, N'Air Freshner (Girls Campus)', NULL, NULL, NULL, 300, 0.0000, 0, 0, 'Import', 1865),
+    (118, 19, 38, N'Juice for Guest', NULL, NULL, NULL, 240, 0.0000, 0, 0, 'Import', 1866),
+    (118, 20, 44, N'Bulb (boys campus)', NULL, NULL, NULL, 150, 0.0000, 0, 0, 'Import', 1867),
+    (118, 21, 46, N'Apa Rukhsana 4 days salary', NULL, NULL, NULL, 1500, 0.0000, 0, 0, 'Import', 1868),
+    (118, 22, 33, N'Cash fee deposit R # 3369724', NULL, NULL, NULL, 70900, 0.0000, 0, 0, 'Import', 1869),
+    (118, 23, 29, N'Closing Balance', NULL, NULL, NULL, 0.0000, 0.0000, 0, 0, 'Import', 1870),
+    (119, 1, 29, N'Opening Balance', NULL, NULL, NULL, 0.0000, 0.0000, 0, 0, 'Import', 1871),
+    (119, 2, 36, N'Cash Girls R # 1180 - 1182', NULL, NULL, NULL, 0.0000, 5000, 0, 0, 'Import', 1872),
+    (119, 3, 36, N'Online Boys R # 1182', NULL, NULL, NULL, 0.0000, 20000, 0, 0, 'Import', 1873),
+    (119, 4, 36, N'Cash Boys R # 832 - 836', NULL, NULL, NULL, 0.0000, 67450, 0, 0, 'Import', 1874),
+    (119, 5, 60, N'Cash Boys R # 832 - 836', NULL, NULL, NULL, 0.0000, 11000, 0, 0, 'Import', 1875),
+    (119, 6, 9, N'Internet bill Paid M/O Nov-26', NULL, NULL, NULL, 0.0000, 4000, 0, 0, 'Import', 1876),
+    (119, 7, 34, N'Online Fee R # 1182', NULL, NULL, NULL, 20000, 0.0000, 0, 0, 'Import', 1877),
+    (119, 8, 34, N'Fee cash online transfer jazzcash to bank', NULL, NULL, NULL, 9000, 0.0000, 0, 0, 'Import', 1878),
+    (119, 9, 39, N'Internet bill Paid M/O Nov-26', NULL, NULL, NULL, 4000, 0.0000, 0, 0, 'Import', 1879),
+    (119, 10, 34, N'Fee cash deposit R # 3369628', NULL, NULL, NULL, 74450, 0.0000, 0, 0, 'Import', 1880),
+    (119, 11, 29, N'Closing Balance', NULL, NULL, NULL, 0.0000, 0.0000, 0, 0, 'Import', 1881);
 
 COMMIT;
 DECLARE @a int = (SELECT COUNT(*) FROM dbo.acc_Accounts), @v int = (SELECT COUNT(*) FROM dbo.acc_Vouchers), @l int = (SELECT COUNT(*) FROM dbo.acc_VoucherLines);
